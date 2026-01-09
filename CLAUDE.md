@@ -84,6 +84,22 @@ pip install -e ".[ai]"
 - `filters.py` - 文件过滤工具，支持通配符和忽略模式
 - `regex_cache.py` - 正则表达式缓存
 
+### UI 模块 (`ui/`)
+- `main_window.py` - 主窗口和 `show_quick_pick()` 函数
+- `file_list_widget.py` - `FileListWidget` 类，文件列表控件
+- `svn_executor.py` - `SVNCommandExecutor` 类，SVN 命令执行器
+- `fs_helper.py` - `FileSystemHelper` 类，文件系统操作辅助
+- `context_menu.py` - `ContextMenuBuilder` 类，右键菜单构建器
+- `commit_message.py` - 提交消息生成函数（UI 专用）
+- `constants.py` - UI 常量定义
+- `menu_constants.py` - 右键菜单常量定义
+- `styles.py` - UI 样式配置常量
+- `regex_cache.py` - 正则表达式缓存（UI 专用）
+
+### Windows 模块 (`windows/`) - 仅 Windows 平台
+- `registry.py` - 注册表操作辅助函数
+- `context_menu_installer.py` - 右键菜单注册/卸载
+
 ### 入口点
 - `cli.py` - 命令行入口，处理参数解析和流程协调
 - `__main__.py` - Python 模块执行入口
@@ -129,7 +145,7 @@ GUI 功能（PyQt5）是可选的，通过 `try/except ImportError` 处理。如
 
 ### GitHub Actions 自动化发布
 
-项目使用 GitHub Actions 自动化构建 Windows 可执行文件并发布到 GitHub Releases。
+项目使用 GitHub Actions 自动化构建 Windows 可执行文件和安装程序，并发布到 GitHub Releases。
 
 **触发方式**：
 - 推送以 `v` 开头的 Git tag（如 `v1.0.0`）
@@ -138,8 +154,10 @@ GUI 功能（PyQt5）是可选的，通过 `try/except ImportError` 处理。如
 **构建配置**：
 - 运行环境：`windows-latest`
 - Python 版本：3.11
-- 打包工具：PyInstaller（单文件模式，`--onefile --windowed`）
-- 产物命名：`smart-svn-commit-v<version>-win.exe`
+- 打包工具：PyInstaller（单文件模式） + NSIS（安装程序）
+- 产物命名：
+  - `smart-svn-commit-v<version>-win.exe` - 单文件可执行版本
+  - `smart-svn-commit-setup-<version>.exe` - NSIS 安装程序
 
 **本地测试打包**：
 ```bash
@@ -160,6 +178,25 @@ pyinstaller ^
 
 生成的 exe 文件位于 `dist/smart-svn-commit.exe`。
 
+### NSIS 安装程序
+
+NSIS 脚本位于 `installer/installer.nsi`，用于构建 Windows 安装程序。安装程序会：
+
+1. 复制文件到 Program Files
+2. 注册 Windows 右键菜单（仅在 SVN 工作副本显示）
+3. 创建桌面快捷方式
+4. 创建开始菜单快捷方式
+
+本地构建 NSIS 安装程序需要安装 NSIS：
+```bash
+# 使用 Chocolatey 安装 NSIS
+choco install nsis -y
+
+# 构建安装程序
+cd installer
+makensis installer.nsi
+```
+
 ## Conventional Commits 规范
 
 项目使用 Conventional Commits 格式：`<type>(<scope>): <description>`
@@ -177,6 +214,14 @@ pyinstaller ^
 安装后注册两个命令：
 - `smart-svn-commit` - 完整命令
 - `ssc` - 短命令别名
+
+### 新增命令行参数
+
+- `--file <path>` - 打开 GUI 并显示指定文件
+- `--dir <path>` - 打开 GUI 并显示目录下变更文件
+- `--context-menu install` - 手动注册 Windows 右键菜单（仅 Windows）
+- `--context-menu uninstall` - 手动卸载 Windows 右键菜单（仅 Windows）
+- `--context-menu status` - 查看右键菜单注册状态（仅 Windows）
 
 ## Windows 特殊处理
 

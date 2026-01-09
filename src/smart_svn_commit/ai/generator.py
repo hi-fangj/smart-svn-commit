@@ -3,11 +3,12 @@ AI 提交消息生成器
 """
 
 import sys
-from typing import List, Dict
+from typing import List, Dict, Any, Optional, cast
 
 # OpenAI SDK 导入
 try:
     from openai import OpenAI as OpenAIClient
+
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
@@ -16,8 +17,7 @@ from ..core.config import load_config
 
 
 def generate_commit_message_with_ai(
-    files_with_diff: List[Dict[str, str]],
-    config: Dict = None
+    files_with_diff: List[Dict[str, str]], config: Optional[Dict[str, Any]] = None
 ) -> str:
     """
     使用 OpenAI SDK 生成提交消息
@@ -52,10 +52,13 @@ def generate_commit_message_with_ai(
         return DEFAULT_MESSAGE
 
     # 构建 diff 摘要
-    diff_summary = "\n\n".join([
-        f"文件: {f['path']}\n变更内容:\n{f['diff'][:2000]}"
-        for f in files_with_diff if f.get('diff')
-    ])
+    diff_summary = "\n\n".join(
+        [
+            f"文件: {f['path']}\n变更内容:\n{f['diff'][:2000]}"
+            for f in files_with_diff
+            if f.get("diff")
+        ]
+    )
 
     if not diff_summary:
         return DEFAULT_MESSAGE
@@ -90,15 +93,16 @@ def generate_commit_message_with_ai(
             model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": user_prompt},
             ],
             temperature=0.3,
             max_tokens=200,
-            timeout=30.0
+            timeout=30.0,
         )
 
         if response.choices and response.choices[0].message.content:
-            message = response.choices[0].message.content.strip('"\'').strip()
+            content = cast(str, response.choices[0].message.content)
+            message = content.strip("\"'").strip()
             if message:
                 return message
 

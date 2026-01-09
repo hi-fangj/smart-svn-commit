@@ -1,9 +1,8 @@
-# CI/CD 规范
+# ci-cd Specification
 
-本规范定义了 Smart SVN Commit 项目的持续集成和持续部署（CI/CD）流程。
-
-## 新增需求
-
+## Purpose
+TBD - created by archiving change add-github-workflow-release. Update Purpose after archive.
+## 需求
 ### 需求：GitHub Actions 自动化发布工作流
 
 项目必须提供 GitHub Actions 工作流，用于自动化构建和发布 Windows 平台的可执行文件。
@@ -91,8 +90,6 @@
 - **例如**：`smart-svn-commit-v1.0.0-win.exe`
 - **并且** 版本号应从 Git tag 或项目版本中获取
 
-## 修改需求
-
 ### 需求：用户安装方式
 
 项目必须支持多种安装方式，包括预编译的可执行文件。
@@ -110,3 +107,4 @@
 - **那么** 必须明确说明使用 exe 文件的系统要求
 - **并且** 必须说明仍需安装 SVN 命令行工具或 TortoiseSVN
 - **并且** 必须说明 exe 文件已包含 Python 环境和所有依赖
+

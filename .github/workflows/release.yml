@@ -60,6 +60,20 @@ jobs:
         run: |
           mv dist/smart-svn-commit.exe "dist/smart-svn-commit-${{ steps.get_version.outputs.VERSION }}-win.exe"
 
+      - name: 安装 NSIS
+        run: |
+          choco install nsis -y
+        shell: cmd
+
+      - name: 使用 NSIS 构建安装程序
+        shell: cmd
+        run: |
+          set PATH=%PATH%;C:\\Program Files (x86)\\NSIS
+          copy dist\smart-svn-commit-${{ steps.get_version.outputs.VERSION }}-win.exe dist\smart-svn-commit.exe
+          cd installer
+          makensis installer.nsi
+          copy smart-svn-commit-setup-*.exe ..\dist\
+
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:

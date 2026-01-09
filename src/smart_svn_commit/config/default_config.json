@@ -35,12 +35,6 @@
       "audio"
     ]
   },
-  "ui": {
-    "splitterRatio": [
-      30,
-      70
-    ]
-  },
   "aiApi": {
     "enabled": false,
     "baseUrl": "",

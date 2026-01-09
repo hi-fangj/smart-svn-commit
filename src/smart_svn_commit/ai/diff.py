@@ -24,7 +24,7 @@ def get_file_diff(file_path: str) -> str:
             text=True,
             check=False,
             encoding="utf-8",
-            errors="ignore"
+            errors="ignore",
         )
         if result.returncode == 0:
             return result.stdout.strip()
@@ -46,8 +46,5 @@ def get_multiple_files_diff(file_paths: List[str]) -> List[dict]:
     files_with_diff = []
     for file_path in file_paths:
         diff_content = get_file_diff(file_path)
-        files_with_diff.append({
-            "path": file_path,
-            "diff": diff_content
-        })
+        files_with_diff.append({"path": file_path, "diff": diff_content})
     return files_with_diff

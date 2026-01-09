@@ -8,8 +8,7 @@ from typing import List, Tuple
 
 
 def apply_ignore_patterns(
-    files: List[Tuple[str, str]],
-    ignore_patterns: List[str]
+    files: List[Tuple[str, str]], ignore_patterns: List[str]
 ) -> List[Tuple[str, str]]:
     """
     应用忽略模式过滤文件列表
@@ -87,9 +86,9 @@ def wildcard_filter(pattern: str, items: List[Tuple[str, str]]) -> List[Tuple[st
     """
     # 将通配符模式转换为正则表达式
     regex_pattern = re.escape(pattern)
-    regex_pattern = regex_pattern.replace(r'\*', '.*')
-    regex_pattern = regex_pattern.replace(r'\?', '.')
-    regex_pattern = f'^{regex_pattern}$'
+    regex_pattern = regex_pattern.replace(r"\*", ".*")
+    regex_pattern = regex_pattern.replace(r"\?", ".")
+    regex_pattern = f"^{regex_pattern}$"
 
     try:
         regex = re.compile(regex_pattern, re.IGNORECASE)

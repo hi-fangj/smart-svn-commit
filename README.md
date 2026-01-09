@@ -12,26 +12,36 @@ Smart SVN Commit 是一个强大的 SVN 提交工具，提供图形化界面选�
 - **智能过滤**: 支持通配符搜索和自定义忽略模式
 - **快捷键**: 支持键盘快捷操作（Enter 确认、ESC 取消、F5 刷新）
 - **灵活配置**: 支持项目级和用户级配置文件
+- **Windows 右键菜单**: 支持 SVN 工作副本右键菜单集成（仅 Windows）
 
 ## 安装
 
-### 方式一：下载可执行文件（推荐 Windows 用户）
+### 方式一：使用安装程序（推荐 Windows 用户）
 
-从 [GitHub Releases](https://github.com/hi-fangj/smart-svn-commit/releases) 下载最新版本的 `smart-svn-commit-v*-win.exe` 文件，直接运行即可使用，无需安装 Python 环境。
+从 [GitHub Releases](https://github.com/hi-fangj/smart-svn-commit/releases) 下载最新版本的安装程序 `smart-svn-commit-setup-*.exe`。安装程序会：
 
-**注意**：使用 exe 版本仍需在系统中安装 SVN 命令行工具或 TortoiseSVN。
+- 自动安装程序文件
+- 注册 Windows 右键菜单（仅在 SVN 工作副本中显示）
+- 创建桌面快捷方式
 
-### 方式二：使用 pip 安装
+安装完成后，在 SVN 项目目录中右键即可看到 "Smart SVN Commit" 选项。
 
-#### 基础安装
+### 方式二：使用可执行文件
 
+从 [GitHub Releases](https://github.com/hi-fangj/smart-svn-commit/releases) 下载 `smart-svn-commit-v*-win.exe` 文件，直接运行即可使用，无需安装。
+
+**注意**：可执行文件版本需要手动注册右键菜单：
 ```bash
-pip install smart-svn-commit
+smart-svn-commit.exe --context-menu install
 ```
 
-#### 完整安装（包含 AI 支持）
+### 方式三：使用 pip 安装
 
 ```bash
+# 基础安装
+pip install smart-svn-commit
+
+# 完整安装（包含 AI 支持）
 pip install smart-svn-commit[ai]
 ```
 
@@ -51,6 +61,31 @@ smart-svn-commit --files="file1.cs,file2.cs"
 
 # 从 SVN 管道输入
 svn status | smart-svn-commit --status
+```
+
+### Windows 右键菜单（仅限 Windows）
+
+```bash
+# 注册右键菜单
+smart-svn-commit --context-menu install
+
+# 卸载右键菜单
+smart-svn-commit --context-menu uninstall
+
+# 查看右键菜单状态
+smart-svn-commit --context-menu status
+```
+
+右键菜单仅在 SVN 工作副本中显示，非 SVN 目录不会显示该选项。
+
+### 打开指定文件或目录
+
+```bash
+# 打开 GUI 并显示指定文件
+smart-svn-commit --file "path/to/file.cs"
+
+# 打开 GUI 并显示目录下变更文件
+smart-svn-commit --dir "path/to/directory"
 ```
 
 ### 配置 AI
@@ -151,9 +186,6 @@ smart-svn-commit --files="file1.cs,file2.cs" --skip-ui
     "types": ["feat", "fix", "docs", "style", "refactor", "perf", "test", "chore", "build"],
     "scopes": ["guild", "battle", "chat", "player", "ui", "network", "config", "art", "audio"]
   },
-  "ui": {
-    "splitterRatio": [30, 70]
-  },
   "aiApi": {
     "enabled": false,
     "baseUrl": "",
@@ -173,6 +205,8 @@ smart-svn-commit --files="file1.cs,file2.cs" --skip-ui
 usage: smart-svn-commit [-h] [--version] [--files FILES] [--status] [--skip-ui]
                         [--ignore IGNORE | --no-ignore]
                         [--config {init,edit,show}]
+                        [--context-menu {install,uninstall,status}]
+                        [--file FILE] [--dir DIR]
 
 options:
   -h, --help            显示帮助信息
@@ -184,6 +218,10 @@ options:
   --no-ignore           禁用所有忽略模式
   --config {init,edit,show}
                         配置管理操作
+  --context-menu {install,uninstall,status}
+                        Windows 右键菜单管理（仅 Windows）
+  --file FILE           打开 GUI 并显示指定文件
+  --dir DIR             打开 GUI 并显示目录下变更文件
 ```
 
 ## Python API

@@ -22,22 +22,13 @@ def execute_svn_commit(files: List[str], message: str) -> Dict[str, Any]:
         包含 success, revision, message, output 的字典
     """
     if not files:
-        return {
-            "success": False,
-            "message": "没有选择要提交的文件",
-            "output": ""
-        }
+        return {"success": False, "message": "没有选择要提交的文件", "output": ""}
 
     # 创建临时文件包含文件列表（SVN --targets 参数）
     # 使用 delete=False 以便在 Windows 上 SVN 可以读取文件
-    with tempfile.NamedTemporaryFile(
-        mode='w',
-        encoding='utf-8',
-        delete=False,
-        suffix='.txt'
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False, suffix=".txt") as f:
         for file_path in files:
-            f.write(file_path + '\n')
+            f.write(file_path + "\n")
         targets_file = f.name
 
     try:
@@ -47,14 +38,14 @@ def execute_svn_commit(files: List[str], message: str) -> Dict[str, Any]:
             text=True,
             check=False,
             encoding="utf-8",
-            errors="ignore"
+            errors="ignore",
         )
 
         # 解析输出获取修订版本号
         revision = None
         if result.returncode == 0:
             # SVN 成功输出格式: "Committed revision 12345."
-            match = re.search(r'Committed revision (\d+)', result.stdout)
+            match = re.search(r"Committed revision (\d+)", result.stdout)
             if match:
                 revision = match.group(1)
 
@@ -62,7 +53,7 @@ def execute_svn_commit(files: List[str], message: str) -> Dict[str, Any]:
             "success": result.returncode == 0,
             "revision": revision,
             "message": "提交成功" if result.returncode == 0 else "提交失败",
-            "output": result.stdout + result.stderr
+            "output": result.stdout + result.stderr,
         }
     finally:
         # 确保删除临时文件，忽略错误（Windows 可能锁定文件）
@@ -88,7 +79,7 @@ def run_svn_status() -> List[tuple]:
             text=True,
             check=False,
             encoding="utf-8",
-            errors="ignore"
+            errors="ignore",
         )
         if result.returncode == 0:
             return parse_svn_status(result.stdout)

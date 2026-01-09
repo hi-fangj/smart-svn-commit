@@ -5,7 +5,7 @@ SVN 状态解析器
 from typing import List, Tuple
 
 # SVN 状态码常量
-SVN_STATUS_CODES = {'M', 'A', 'D', '?', '!', 'C', 'R', '~', 'S'}
+SVN_STATUS_CODES = {"M", "A", "D", "?", "!", "C", "R", "~", "S"}
 
 
 def parse_svn_status(status_output: str) -> List[Tuple[str, str]]:
@@ -26,7 +26,7 @@ def parse_svn_status(status_output: str) -> List[Tuple[str, str]]:
 
         # SVN status 格式: "M       Assets/Scripts/File.cs"
         # 前 8 个字符是工作区状态（第 1 个字符）和版本库状态（第 8 个字符）
-        if len(line) > 8 and line[0] != ' ':
+        if len(line) > 8 and line[0] != " ":
             status_code, file_path = line[0], line[8:].strip()
             if status_code in SVN_STATUS_CODES and file_path:
                 files.append((status_code, file_path))

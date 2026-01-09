@@ -5,7 +5,7 @@
 import sys
 import json
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Any, cast
 
 
 def get_config_path() -> Path:
@@ -36,7 +36,7 @@ def get_config_path() -> Path:
     return config_dir / "config.json"
 
 
-def get_default_config() -> Dict:
+def get_default_config() -> Dict[str, Any]:
     """
     获取默认配置
 
@@ -52,22 +52,12 @@ def get_default_config() -> Dict:
             "Temp/",
             ".vs/",
             "obj/",
-            "UserSettings/"
+            "UserSettings/",
         ],
         "commitMessage": {
             "format": "conventional",
             "language": "zh",
-            "types": [
-                "feat",
-                "fix",
-                "docs",
-                "style",
-                "refactor",
-                "perf",
-                "test",
-                "chore",
-                "build"
-            ],
+            "types": ["feat", "fix", "docs", "style", "refactor", "perf", "test", "chore", "build"],
             "scopes": [
                 "guild",
                 "battle",
@@ -77,12 +67,10 @@ def get_default_config() -> Dict:
                 "network",
                 "config",
                 "art",
-                "audio"
-            ]
+                "audio",
+            ],
         },
-        "ui": {
-            "splitterRatio": [30, 70]
-        },
+        "ui": {"splitterRatio": [30, 70]},
         "aiApi": {
             "enabled": False,
             "baseUrl": "",
@@ -102,13 +90,13 @@ def get_default_config() -> Dict:
 
 {diff_summary}
 
-请直接返回提交消息，格式如：feat(battle): 添加新的战斗技能系统"""
-            }
-        }
+请直接返回提交消息，格式如：feat(battle): 添加新的战斗技能系统""",
+            },
+        },
     }
 
 
-def load_config() -> Dict:
+def load_config() -> Dict[str, Any]:
     """
     加载配置文件
 
@@ -120,7 +108,7 @@ def load_config() -> Dict:
     if cwd_config.exists():
         try:
             with open(cwd_config, "r", encoding="utf-8") as f:
-                return json.load(f)
+                return cast(Dict[str, Any], json.load(f))
         except (json.JSONDecodeError, IOError) as e:
             print(f"警告: 无法读取配置文件 {cwd_config}: {e}", file=sys.stderr)
 
@@ -129,7 +117,7 @@ def load_config() -> Dict:
     if config_path.exists():
         try:
             with open(config_path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                return cast(Dict[str, Any], json.load(f))
         except (json.JSONDecodeError, IOError) as e:
             print(f"警告: 无法读取配置文件 {config_path}: {e}", file=sys.stderr)
 
@@ -137,7 +125,7 @@ def load_config() -> Dict:
     return get_default_config()
 
 
-def save_config(config: Dict, config_path: Optional[Path] = None) -> bool:
+def save_config(config: Dict[str, Any], config_path: Optional[Path] = None) -> bool:
     """
     保存配置文件
 

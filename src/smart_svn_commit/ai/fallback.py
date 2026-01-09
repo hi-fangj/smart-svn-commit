@@ -70,8 +70,8 @@ def generate_commit_message_by_keywords(files: List[str]) -> str:
             scope_counts[detected_scope] = scope_counts.get(detected_scope, 0) + 1
 
     # 选择最常见的类型和范围
-    commit_type = max(type_counts, key=type_counts.get) if type_counts else "chore"
-    commit_scope = max(scope_counts, key=scope_counts.get) if scope_counts else ""
+    commit_type = max(type_counts, key=lambda k: type_counts[k]) if type_counts else "chore"
+    commit_scope = max(scope_counts, key=lambda k: scope_counts[k]) if scope_counts else ""
 
     # 构建提交消息
     if commit_scope:

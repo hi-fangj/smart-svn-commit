@@ -1,7 +1,18 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git init:*)"
+      "Bash(git init:*)",
+      "Bash(openspec-cn:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(python:*)",
+      "Bash(git checkout:*)",
+      "Bash(pip show:*)",
+      "Bash(echo:*)",
+      "Bash(pip install:*)",
+      "Bash(pyinstaller:*)",
+      "Bash(C:/Users/fangj/AppData/Local/Programs/Python/Python313/python.exe:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(\"/c/Program Files \\(x86\\)/NSIS/makensis.exe\" \"D:/Project/smart-svn-commit/installer/installer.nsi\")"
     ]
   }
 }

@@ -47,11 +47,7 @@ class SVNCommandExecutor:
                 print(f"无法执行 SVN 命令: {e}", file=sys.stderr)
 
     def execute_modifying_command(
-        self,
-        file_path: str,
-        svn_cmd: str,
-        tortoise_cmd: str,
-        action_name: str
+        self, file_path: str, svn_cmd: str, tortoise_cmd: str, action_name: str
     ) -> bool:
         """
         执行修改类 SVN 命令（使用 subprocess.run）
@@ -68,9 +64,7 @@ class SVNCommandExecutor:
         if not self._try_tortoise(tortoise_cmd, file_path):
             try:
                 result = subprocess.run(
-                    ["svn", svn_cmd, file_path],
-                    check=False,
-                    capture_output=True
+                    ["svn", svn_cmd, file_path], check=False, capture_output=True
                 )
                 return result.returncode == 0
             except (FileNotFoundError, OSError) as e:
