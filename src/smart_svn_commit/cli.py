@@ -10,15 +10,15 @@ import sys
 from pathlib import Path
 from typing import List, Tuple, Dict, Any
 
-from .core.parser import parse_svn_status
-from .core.commit import execute_svn_commit, run_svn_status
-from .core.config import load_config, init_config, get_config_path
-from .utils.filters import apply_ignore_patterns
-from .ai.factory import generate_commit_message
+from smart_svn_commit.core.parser import parse_svn_status
+from smart_svn_commit.core.commit import execute_svn_commit, run_svn_status
+from smart_svn_commit.core.config import load_config, init_config, get_config_path
+from smart_svn_commit.utils.filters import apply_ignore_patterns
+from smart_svn_commit.ai.factory import generate_commit_message
 
 # 尝试导入 UI 模块
 try:
-    from .ui.main_window import show_quick_pick
+    from smart_svn_commit.ui.main_window import show_quick_pick
 
     UI_AVAILABLE = True
 except ImportError:
@@ -28,7 +28,7 @@ except ImportError:
 WINDOWS_AVAILABLE = sys.platform == "win32"
 if WINDOWS_AVAILABLE:
     try:
-        from .windows import (
+        from smart_svn_commit.windows import (
             register_context_menu,
             unregister_context_menu,
             is_context_menu_registered,
