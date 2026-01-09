@@ -1,0 +1,75 @@
+name: Build Windows Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[ai]"
+
+      - name: 安装 PyInstaller
+        run: pip install pyinstaller>=6.0
+
+      - name: 获取版本号
+        id: get_version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 使用 PyInstaller 打包
+        run: |
+          pyinstaller ^
+            --onefile ^
+            --windowed ^
+            --name smart-svn-commit ^
+            --add-data "src/smart_svn_commit/config/*.json;smart_svn_commit/config" ^
+            --hidden-import PyQt5.QtWidgets ^
+            --hidden-import PyQt5.QtCore ^
+            --hidden-import PyQt5.QtGui ^
+            src/smart_svn_commit/cli.py
+
+      - name: 重命名可执行文件（添加版本号）
+        shell: bash
+        run: |
+          mv dist/smart-svn-commit.exe "dist/smart-svn-commit-${{ steps.get_version.outputs.VERSION }}-win.exe"
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-svn-commit-windows
+          path: dist/smart-svn-commit-*.exe
+
+      - name: 发布到 GitHub Release
+        if: github.event_name == 'push' || github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/smart-svn-commit-*.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
