@@ -18,8 +18,15 @@ from .registry import (
 
 
 # 右键菜单注册表路径
-CONTEXT_MENU_KEY_PATH = r"Software\Classes\Directory\Background\shell\smart-svn-commit"
-CONTEXT_MENU_COMMAND_KEY_PATH = f"{CONTEXT_MENU_KEY_PATH}\\command"
+# 文件夹背景右键菜单
+CONTEXT_MENU_BG_KEY_PATH = r"Software\Classes\Directory\Background\shell\smart-svn-commit"
+CONTEXT_MENU_BG_COMMAND_KEY_PATH = f"{CONTEXT_MENU_BG_KEY_PATH}\\command"
+# 文件夹右键菜单
+CONTEXT_MENU_DIR_KEY_PATH = r"Software\Classes\Directory\shell\smart-svn-commit"
+CONTEXT_MENU_DIR_COMMAND_KEY_PATH = f"{CONTEXT_MENU_DIR_KEY_PATH}\\command"
+# 兼容旧版本的常量
+CONTEXT_MENU_KEY_PATH = CONTEXT_MENU_BG_KEY_PATH
+CONTEXT_MENU_COMMAND_KEY_PATH = CONTEXT_MENU_BG_COMMAND_KEY_PATH
 
 
 def is_svn_working_copy(path: str) -> bool:
@@ -94,55 +101,66 @@ def get_install_command() -> str:
     Returns:
         注册表命令字符串
     """
-    # 获取 Python 可执行文件路径
-    python_exe = sys.executable
-
-    # 获取安装目录
-    install_dir = Path(__file__).parent.parent.parent.parent.resolve()
-
-    # 构建命令：python -c "import sys; sys.path.insert(0, 'INSTALL_DIR'); from smart_svn_commit.windows.context_menu_installer import handle_context_menu; handle_context_menu('%V')"
-    # 注意：注册表中的 %v 会被替换为用户右键点击的目录路径
-    install_dir_str = str(install_dir).replace('\\', '\\\\')
-    python_code = (
-        f"import sys; sys.path.insert(0, '{install_dir_str}'); "
-        f"from smart_svn_commit.windows.context_menu_installer import handle_context_menu; "
-        f"handle_context_menu('%v')"
-    )
-    command = f'"{python_exe}" -c "{python_code}"'
+    # 检测是否为 PyInstaller 打包的 exe
+    if getattr(sys, 'frozen', False):
+        # PyInstaller 打包环境：直接调用 exe
+        exe_path = sys.executable
+        # 注册表中的 %v 或 %1 会被替换为用户右键点击的目录路径
+        command = f'"{exe_path}" --dir "%v"'
+    else:
+        # 开发环境：使用 Python 解释器
+        python_exe = sys.executable
+        # 获取安装目录
+        install_dir = Path(__file__).parent.parent.parent.parent.resolve()
+        install_dir_str = str(install_dir).replace('\\', '\\\\')
+        # 使用 -c 参数执行 Python 代码
+        python_code = (
+            f"import sys; sys.path.insert(0, '{install_dir_str}'); "
+            f"from smart_svn_commit.windows.context_menu_installer import handle_context_menu; "
+            f"handle_context_menu('%v')"
+        )
+        command = f'"{python_exe}" -c "{python_code}"'
 
     return command
 
 
 def register_context_menu() -> bool:
     """
-    注册右键菜单
+    注册右键菜单（文件夹背景 + 文件夹本身）
 
     Returns:
         是否成功
     """
     try:
-        # 创建菜单项键
+        command = get_install_command()
+
+        # 注册文件夹背景右键菜单
         if not set_registry_value(
             winreg.HKEY_CURRENT_USER,
-            CONTEXT_MENU_KEY_PATH,
+            CONTEXT_MENU_BG_KEY_PATH,
             "",
             "Smart SVN Commit"
         ):
             return False
-
-        # 设置图标（可选）
-        # set_registry_value(
-        #     winreg.HKEY_CURRENT_USER,
-        #     CONTEXT_MENU_KEY_PATH,
-        #     "Icon",
-        #     str(Path(sys.executable).parent / "python.exe")
-        # )
-
-        # 设置命令
-        command = get_install_command()
         if not set_registry_value(
             winreg.HKEY_CURRENT_USER,
-            CONTEXT_MENU_COMMAND_KEY_PATH,
+            CONTEXT_MENU_BG_COMMAND_KEY_PATH,
+            "",
+            command
+        ):
+            return False
+
+        # 注册文件夹右键菜单
+        if not set_registry_value(
+            winreg.HKEY_CURRENT_USER,
+            CONTEXT_MENU_DIR_KEY_PATH,
+            "",
+            "Smart SVN Commit"
+        ):
+            return False
+        if not set_registry_value(
+            winreg.HKEY_CURRENT_USER,
+            CONTEXT_MENU_DIR_COMMAND_KEY_PATH,
             "",
             command
         ):
@@ -158,17 +176,19 @@ def register_context_menu() -> bool:
 
 def unregister_context_menu() -> bool:
     """
-    卸载右键菜单
+    卸载右键菜单（文件夹背景 + 文件夹本身）
 
     Returns:
         是否成功
     """
     try:
-        # 删除命令键
-        delete_registry_key(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_COMMAND_KEY_PATH)
+        # 删除文件夹背景菜单
+        delete_registry_key(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_BG_COMMAND_KEY_PATH)
+        delete_registry_key(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_BG_KEY_PATH)
 
-        # 删除菜单项键
-        delete_registry_key(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_KEY_PATH)
+        # 删除文件夹菜单
+        delete_registry_key(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_DIR_COMMAND_KEY_PATH)
+        delete_registry_key(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_DIR_KEY_PATH)
 
         print("右键菜单已成功卸载", file=sys.stderr)
         return True
@@ -183,9 +203,12 @@ def is_context_menu_registered() -> bool:
     检查右键菜单是否已注册
 
     Returns:
-        是否已注册
+        是否已注册（任一路径存在即返回 True）
     """
-    return registry_key_exists(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_KEY_PATH)
+    return (
+        registry_key_exists(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_BG_KEY_PATH) or
+        registry_key_exists(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_DIR_KEY_PATH)
+    )
 
 
 # 主入口（用于注册表命令调用）

@@ -17,7 +17,7 @@ from .constants import (
     STATUS_PREFIX_SEPARATOR,
     CANDIDATE_BG_COLOR,
 )
-from .regex_cache import _regex_cache
+from smart_svn_commit.utils.regex_cache import _regex_cache
 
 
 def _extract_path_from_display_text(display_text: str) -> Optional[str]:

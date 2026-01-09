@@ -33,6 +33,8 @@ class RegexCache:
 
 # 全局单例实例
 _global_cache = RegexCache()
+# 向后兼容的别名
+_regex_cache = _global_cache
 
 
 def get_global_cache() -> RegexCache:
