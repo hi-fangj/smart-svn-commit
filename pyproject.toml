@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "smart-svn-commit"
-version = "1.0.0"
+version = "2.0.0"
 description = "AI 驱动的 SVN 提交助手，支持 PyQt5 GUI 和 TortoiseSVN 集成"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -68,7 +68,7 @@ line-length = 100
 target-version = ['py38', 'py39', 'py310', 'py311']
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
