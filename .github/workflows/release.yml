@@ -43,6 +43,7 @@ jobs:
           fi
 
       - name: 使用 PyInstaller 打包
+        shell: cmd
         run: |
           pyinstaller ^
             --onefile ^
