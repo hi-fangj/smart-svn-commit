@@ -1,0 +1,54 @@
+{
+  "ignorePatterns": [
+    ".DS_Store",
+    "Thumbs.db",
+    "*.tmp",
+    "Library/",
+    "Temp/",
+    ".vs/",
+    "obj/",
+    "UserSettings/"
+  ],
+  "commitMessage": {
+    "format": "conventional",
+    "language": "zh",
+    "types": [
+      "feat",
+      "fix",
+      "docs",
+      "style",
+      "refactor",
+      "perf",
+      "test",
+      "chore",
+      "build"
+    ],
+    "scopes": [
+      "guild",
+      "battle",
+      "chat",
+      "player",
+      "ui",
+      "network",
+      "config",
+      "art",
+      "audio"
+    ]
+  },
+  "ui": {
+    "splitterRatio": [
+      30,
+      70
+    ]
+  },
+  "aiApi": {
+    "enabled": false,
+    "baseUrl": "",
+    "apiKey": "",
+    "model": "gpt-3.5-turbo",
+    "prompts": {
+      "system": "你是一个专业的代码提交消息生成助手。请根据代码的 diff 内容生成符合 Conventional Commits 格式的提交消息。\n\n格式要求：\n- 格式：<类型>(<范围>): <简短描述>\n- 类型（type）：feat（新功能）、fix（修复bug）、docs（文档）、style（格式）、refactor（重构）、perf（性能）、test（测试）、chore（构建/工具）\n- 范围（scope）：根据文件路径和变更内容判断，如 ui、battle、player、network、config 等\n- 描述：简洁明了地说明变更内容，使用中文\n\n请只返回提交消息本身，不要包含任何解释或额外内容。",
+      "user": "请根据以下代码变更生成提交消息：\n\n{diff_summary}\n\n请直接返回提交消息，格式如：feat(battle): 添加新的战斗技能系统"
+    }
+  }
+}
