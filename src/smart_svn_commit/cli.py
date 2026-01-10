@@ -8,7 +8,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from smart_svn_commit.ai.factory import generate_commit_message
 from smart_svn_commit.core.commit import run_svn_status
@@ -43,6 +43,47 @@ if WINDOWS_AVAILABLE:
 def output_result(result: Dict[str, Any]) -> None:
     """输出 JSON 格式结果"""
     print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+def _handle_context_menu_command(command: str) -> int:
+    """
+    处理右键菜单命令
+
+    Args:
+        command: 右键菜单命令（install/uninstall/status/install-com/uninstall-com/status-com）
+
+    Returns:
+        退出码（0 表示成功，1 表示失败）
+    """
+    if not WINDOWS_AVAILABLE:
+        print("错误: 右键菜单功能仅支持 Windows 平台", file=sys.stderr)
+        return 1
+
+    # COM 扩展命令映射
+    com_commands = {
+        "install-com": (register_com_context_menu, "COM 右键菜单已注册", "COM 右键菜单未注册"),
+        "uninstall-com": (unregister_com_context_menu, None, None),
+        "status-com": (is_com_context_menu_registered, "COM 右键菜单已注册", "COM 右键菜单未注册"),
+    }
+
+    # 普通命令映射
+    regular_commands = {
+        "install": (register_context_menu, None, None),
+        "uninstall": (unregister_context_menu, None, None),
+        "status": (is_context_menu_registered, "右键菜单已注册", "右键菜单未注册"),
+    }
+
+    # 选择命令映射
+    commands = com_commands if command.endswith("-com") else regular_commands
+
+    func, success_msg, failure_msg = commands[command]
+    result = func()
+
+    # 输出状态信息（仅 status 命令）
+    if success_msg is not None:
+        print(success_msg if result else failure_msg)
+
+    return 0 if result else 1
 
 
 def main() -> int:
@@ -109,31 +150,7 @@ def main() -> int:
 
     # 处理右键菜单命令
     if args.context_menu:
-        if not WINDOWS_AVAILABLE:
-            print("错误: 右键菜单功能仅支持 Windows 平台", file=sys.stderr)
-            return 1
-
-        # COM 扩展命令
-        if args.context_menu in ("install-com", "uninstall-com", "status-com"):
-            result = {
-                "install-com": register_com_context_menu,
-                "uninstall-com": unregister_com_context_menu,
-                "status-com": is_com_context_menu_registered,
-            }[args.context_menu]()
-
-            if args.context_menu == "status-com":
-                print("COM 右键菜单已注册" if result else "COM 右键菜单未注册")
-        else:
-            # 普通命令
-            result = {
-                "install": register_context_menu,
-                "uninstall": unregister_context_menu,
-                "status": is_context_menu_registered,
-            }[args.context_menu]()
-
-            if args.context_menu == "status":
-                print("右键菜单已注册" if result else "右键菜单未注册")
-        return 0 if result else 1
+        return _handle_context_menu_command(args.context_menu)
 
     # 处理配置命令
     if args.config == "init":
@@ -185,16 +202,11 @@ def main() -> int:
         os.chdir(dir_path)
         # 获取该目录的 SVN 状态
         files = run_svn_status()
-        if not files:
-            output_result({"selected": [], "commitMessage": "", "cancelled": True})
-            return 0
         # 应用忽略模式
         config = load_config()
         ignore_patterns = config.get("ignorePatterns", [])
         files = apply_ignore_patterns(files, ignore_patterns)
-        if not files:
-            output_result({"selected": [], "commitMessage": "", "cancelled": False})
-            return 0
+        # 始终显示 GUI（即使没有变动）
         result = show_quick_pick(files)
         output_result(result)
         return 0 if not result.get("cancelled") else 1
@@ -202,19 +214,23 @@ def main() -> int:
     # 收集文件列表
     files = _collect_files(args)
 
-    if not files:
-        output_result({"selected": [], "commitMessage": "", "cancelled": True})
-        return 0
+    # 判断是否使用异步加载
+    use_async_load = not files and not args.files and not args.status
 
-    # 应用忽略过滤
-    files = _apply_ignore_filters(files, args)
-
-    if not files:
-        output_result({"selected": [], "commitMessage": "", "cancelled": False})
-        return 0
+    # 应用忽略过滤（仅在非异步加载模式下）
+    if not use_async_load:
+        files = _apply_ignore_filters(files, args)
+        if not files:
+            output_result({"selected": [], "commitMessage": "", "cancelled": True})
+            return 0
 
     # 获取选中的文件和提交消息
-    result = _get_selected_files(files, args)
+    if use_async_load:
+        # 异步加载模式：UI 负责加载文件，传入 None 表示异步加载
+        result = _get_selected_files(None, args)
+    else:
+        # 同步模式：已有文件列表
+        result = _get_selected_files(files, args)
 
     # 输出结果
     output_result(result)
@@ -223,7 +239,12 @@ def main() -> int:
 
 
 def _collect_files(args) -> List[Tuple[str, str]]:
-    """收集文件列表（带状态）"""
+    """
+    收集文件列表（带状态）
+
+    注意：当没有提供 --files 和 --status 时，返回空列表，
+    由 UI 使用异步加载方式获取文件。
+    """
     files: List[Tuple[str, str]] = []
 
     if args.files:
@@ -234,9 +255,6 @@ def _collect_files(args) -> List[Tuple[str, str]]:
         status_output = sys.stdin.read()
         if status_output.strip():
             files.extend(parse_svn_status(status_output))
-
-    if not files and not args.files and not args.status:
-        files = run_svn_status()
 
     return files
 
@@ -255,7 +273,7 @@ def _apply_ignore_filters(files: List[Tuple[str, str]], args) -> List[Tuple[str,
     return files
 
 
-def _get_selected_files(files: List[Tuple[str, str]], args) -> Dict[str, Any]:
+def _get_selected_files(files: Optional[List[Tuple[str, str]]], args) -> Dict[str, Any]:
     """
     获取选中的文件列表和提交消息
 

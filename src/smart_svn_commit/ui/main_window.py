@@ -3,50 +3,73 @@
 """
 
 import json
-import subprocess
 import sys
-from typing import List, Tuple, Dict, Any, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
+from PyQt5.QtCore import QEvent, QObject, Qt, pyqtSlot
 from PyQt5.QtWidgets import (
     QApplication,
-    QMainWindow,
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLineEdit,
-    QPushButton,
-    QLabel,
-    QTreeWidget,
-    QMenu,
-    QAction,
-    QTextEdit,
-    QMessageBox,
-    QSplitter,
-    QComboBox,
     QCheckBox,
+    QComboBox,
     QDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QSplitter,
+    QTextEdit,
+    QTreeWidget,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt5.QtCore import Qt, QEvent, QObject
 
-from .constants import CHECKBOX_COLUMN, PATH_COLUMN
-from .styles import UIStyles
-from .file_list_widget import FileListWidget
-from .context_menu import ContextMenuBuilder
 from ..ai.factory import generate_commit_message
-from ..core.parser import parse_svn_status, extract_path_from_display_text
 from ..core.commit import execute_svn_commit
-from ..core.config import load_config
+from ..core.parser import extract_path_from_display_text, parse_svn_status
 from ..core.svn_executor import SVNCommandExecutor
 from ..core.fs_helper import FileSystemHelper
-from ..utils.filters import apply_ignore_patterns
+from .constants import CHECKBOX_COLUMN, PATH_COLUMN
+from .context_menu import ContextMenuBuilder
+from .file_list_widget import FileListWidget
+from .settings_dialog import SettingsDialog
+from .styles import UIStyles
+from .svn_loader import SVNStatusLoader
 
 
-def show_quick_pick(items: List[Tuple[str, str]]) -> Dict[str, Any]:
+def check_pyqt5_available(items: Optional[List[Tuple[str, str]]]) -> bool:
+    """
+    检查 PyQt5 是否可用
+
+    Args:
+        items: 文件列表（用于错误消息）
+
+    Returns:
+        是否可用
+    """
+    try:
+        from PyQt5.QtWidgets import QApplication
+        return True
+    except ImportError:
+        print(
+            json.dumps(
+                {
+                    "error": "PyQt5 not installed",
+                    "message": "请运行: pip install PyQt5",
+                    "available": [path for _, path in items or []],
+                },
+                ensure_ascii=False,
+            )
+        )
+        return False
+
+
+def show_quick_pick(items: Optional[List[Tuple[str, str]]] = None) -> Dict[str, Any]:
     """
     使用 PyQt5 显示 QuickPick 界面。
 
     Args:
-        items: (状态, 文件路径) 元组列表
+        items: (状态, 文件路径) 元组列表，如果为 None 则异步加载
 
     Returns:
         包含 selected、commitMessage、cancelled、commitResult 的字典
@@ -54,25 +77,7 @@ def show_quick_pick(items: List[Tuple[str, str]]) -> Dict[str, Any]:
     Note:
         此函数较长，未来可考虑拆分为专门的 UI 构建类
     """
-    # 检查 PyQt5 是否可用
-    try:
-        from PyQt5.QtWidgets import QApplication
-
-        PYQT5_AVAILABLE = True
-    except ImportError:
-        PYQT5_AVAILABLE = False
-
-    if not PYQT5_AVAILABLE:
-        print(
-            json.dumps(
-                {
-                    "error": "PyQt5 not installed",
-                    "message": "请运行: pip install PyQt5",
-                    "available": [path for _, path in items],
-                },
-                ensure_ascii=False,
-            )
-        )
+    if not check_pyqt5_available(items):
         sys.exit(1)
 
     # 创建应用
@@ -83,6 +88,15 @@ def show_quick_pick(items: List[Tuple[str, str]]) -> Dict[str, Any]:
     window = QMainWindow()
     window.setWindowTitle("SVN 提交助手")
     window.resize(900, 600)
+
+    # 创建菜单栏
+    menubar = window.menuBar()
+    settings_menu = menubar.addMenu("设置")
+
+    # 设置菜单项
+    settings_action = QAction("AI 配置", window)
+    settings_action.triggered.connect(lambda: SettingsDialog(window).exec_())
+    settings_menu.addAction(settings_action)
 
     # 中心部件
     central_widget = QWidget()
@@ -155,10 +169,17 @@ def show_quick_pick(items: List[Tuple[str, str]]) -> Dict[str, Any]:
     # 文件列表（使用自定义控件）
     file_list = FileListWidget()
 
-    # 填充列表数据
-    original_items = list(items)  # 保存原始数据用于过滤
+    # 保存原始数据（用于过滤和刷新）
+    original_items: List[Tuple[str, str]] = []
+    items_for_display: List[Tuple[str, str]] = []
 
-    for status, path in items:
+    # 如果提供了 items，直接使用；否则异步加载
+    if items is not None:
+        original_items = list(items)
+        items_for_display = list(items)
+
+    # 填充列表数据（如果有）
+    for status, path in items_for_display:
         file_list.add_item(status, path)
 
     # 创建垂直分割器，实现动态高度调整
@@ -197,7 +218,16 @@ def show_quick_pick(items: List[Tuple[str, str]]) -> Dict[str, Any]:
 
     # 状态栏和帮助按钮
     status_help_layout = QHBoxLayout()
-    status_label = QLabel(f"共 {len(items)} 个文件")
+
+    # 初始状态文本：如果有 items 显示数量，否则显示加载中
+    if items is not None:
+        if len(items) == 0:
+            status_label = QLabel("当前没有变更文件")
+        else:
+            status_label = QLabel(f"共 {len(items)} 个文件")
+    else:
+        status_label = QLabel("正在加载...")
+
     status_label.setStyleSheet(UIStyles.STATUS_LABEL_STYLE)
     status_help_layout.addWidget(status_label)
     status_help_layout.addStretch()
@@ -282,9 +312,6 @@ def show_quick_pick(items: List[Tuple[str, str]]) -> Dict[str, Any]:
             # 调用统一的生成函数
             commit_message = generate_commit_message(selected_files)
 
-            # 调试：显示生成的消息
-            print(f"[DEBUG] 生成的提交消息: '{commit_message}'", file=sys.stderr)
-
             # 将生成的消息填入输入框
             commit_message_input.setPlainText(commit_message)
             generate_msg_btn.setEnabled(True)
@@ -294,9 +321,9 @@ def show_quick_pick(items: List[Tuple[str, str]]) -> Dict[str, Any]:
     def on_search_changed(text):
         file_list.filter_by_text(text, original_items)
         if text:
-            status_label.setText(f"过滤: {file_list.count()} / {len(items)}")
+            status_label.setText(f"过滤: {file_list.count()} / {len(original_items)}")
         else:
-            status_label.setText(f"共 {len(items)} 个文件")
+            status_label.setText(f"共 {len(original_items)} 个文件")
 
     def on_select_all():
         file_list.select_all()
@@ -330,49 +357,62 @@ def show_quick_pick(items: List[Tuple[str, str]]) -> Dict[str, Any]:
                     )
                     last_item.setCheckState(CHECKBOX_COLUMN, Qt.Checked)
 
-    def refresh_file_list():
-        """刷新文件列表（重新运行 svn status）"""
+    # 异步加载器（初始为 None，需要时创建）
+    svn_loader: Optional[SVNStatusLoader] = None
+
+    @pyqtSlot(list)
+    def on_files_loaded(files: List[Tuple[str, str]]) -> None:
+        """文件列表加载完成槽函数"""
+        nonlocal original_items, items_for_display
+
+        # 更新数据
+        original_items = list(files)
+        items_for_display = list(files)
+
         # 保存当前选中状态
         checked_paths = set(file_list.get_checked_items())
 
-        # 重新获取 SVN 状态
-        try:
-            result = subprocess.run(
-                ["svn", "status"],
-                capture_output=True,
-                text=True,
-                check=False,
-                encoding="utf-8",
-                errors="ignore",
-            )
-            if result.returncode == 0:
-                new_files = parse_svn_status(result.stdout)
+        # 重建列表
+        file_list.tree.clear()
+        for status, path in files:
+            file_list.add_item(status, path)
+            # 恢复选中状态（如果文件仍在列表中）
+            if path in checked_paths:
+                last_item = file_list.tree.topLevelItem(
+                    file_list.tree.topLevelItemCount() - 1
+                )
+                last_item.setCheckState(CHECKBOX_COLUMN, Qt.Checked)
 
-                # 应用忽略模式
-                config = load_config()
-                ignore_patterns = config.get("ignorePatterns", [])
-                new_files = apply_ignore_patterns(new_files, ignore_patterns)
+        # 更新状态栏
+        status_label.setText(f"共 {len(files)} 个文件")
 
-                # 更新全局数据
-                nonlocal original_items, items
-                items[:] = new_files
-                original_items[:] = list(new_files)
+    @pyqtSlot(str)
+    def on_load_error(error_msg: str) -> None:
+        """加载错误槽函数"""
+        status_label.setText(f"加载失败: {error_msg}")
+        QMessageBox.warning(window, "加载失败", error_msg)
 
-                # 重建列表
-                file_list.tree.clear()
-                for status, path in new_files:
-                    file_list.add_item(status, path)
-                    # 恢复选中状态（如果文件仍在列表中）
-                    if path in checked_paths:
-                        last_item = file_list.tree.topLevelItem(
-                            file_list.tree.topLevelItemCount() - 1
-                        )
-                        last_item.setCheckState(CHECKBOX_COLUMN, Qt.Checked)
+    def start_async_load() -> None:
+        """启动异步加载"""
+        nonlocal svn_loader
 
-                # 更新状态栏
-                status_label.setText(f"共 {len(new_files)} 个文件")
-        except (FileNotFoundError, OSError) as e:
-            print(f"无法刷新 SVN 状态: {e}", file=sys.stderr)
+        # 如果已有加载器在运行，先停止
+        if svn_loader is not None and svn_loader.isRunning():
+            svn_loader.terminate()
+            svn_loader.wait()
+
+        # 创建并启动新加载器
+        svn_loader = SVNStatusLoader()
+        svn_loader.finished.connect(on_files_loaded)
+        svn_loader.error.connect(on_load_error)
+        svn_loader.start()
+
+        # 更新状态
+        status_label.setText("正在加载...")
+
+    def refresh_file_list():
+        """刷新文件列表（使用异步加载）"""
+        start_async_load()
 
     def show_help_dialog():
         """显示帮助对话框"""
@@ -556,6 +596,13 @@ def show_quick_pick(items: List[Tuple[str, str]]) -> Dict[str, Any]:
 
     # 显示窗口
     window.show()
+
+    # 如果没有提供 items，启动异步加载
+    if items is None:
+        # 使用 QTimer 延迟启动，确保 UI 先显示
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(0, start_async_load)
+
     app.exec_()
 
     return result

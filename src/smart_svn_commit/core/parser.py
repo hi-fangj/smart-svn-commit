@@ -23,7 +23,8 @@ def parse_svn_status(status_output: str) -> List[Tuple[str, str]]:
     """
     files = []
     for line in status_output.splitlines():
-        line = line.strip()
+        # 只去除行尾空白，保留行首空格（用于识别属性状态）
+        line = line.rstrip()
         if (
             not line
             or line.startswith(("svn: warning:", "svn: E"))
@@ -32,10 +33,22 @@ def parse_svn_status(status_output: str) -> List[Tuple[str, str]]:
             continue
 
         # SVN status 格式: "M       Assets/Scripts/File.cs"
-        # 前 8 个字符是工作区状态（第 1 个字符）和版本库状态（第 8 个字符）
-        if len(line) > 8 and line[0] != " ":
-            status_code, file_path = line[0], line[8:].strip()
-            if status_code in SVN_STATUS_CODES and file_path:
+        # 第 1 列：内容状态，第 2 列：属性状态
+        if len(line) > 8:
+            # 第一列：内容状态
+            content_status = line[0] if line[0] != " " else None
+            # 第二列：属性状态
+            prop_status = line[1] if len(line) > 1 and line[1] in "MC" else None
+
+            # 优先使用内容状态，如果没有则使用属性状态
+            status_code = content_status or prop_status
+
+            # 如果是纯属性变动，使用 _ 前缀区分
+            if prop_status and not content_status:
+                status_code = f"_{prop_status}"
+
+            file_path = line[8:].strip()
+            if status_code and file_path:
                 files.append((status_code, file_path))
 
     return files
