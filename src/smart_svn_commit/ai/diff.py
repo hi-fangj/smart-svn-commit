@@ -32,7 +32,7 @@ def get_file_diff(file_path: str) -> str:
     return ""
 
 
-def get_multiple_files_diff(file_paths: List[str]) -> List[dict]:
+def get_multiple_files_diff(file_paths: List[str]) -> List[dict[str, str]]:
     """
     批量获取多个文件的 diff 内容
 
@@ -42,8 +42,7 @@ def get_multiple_files_diff(file_paths: List[str]) -> List[dict]:
     Returns:
         包含 path 和 diff 的字典列表
     """
-    files_with_diff = []
-    for file_path in file_paths:
-        diff_content = get_file_diff(file_path)
-        files_with_diff.append({"path": file_path, "diff": diff_content})
-    return files_with_diff
+    return [
+        {"path": file_path, "diff": get_file_diff(file_path)}
+        for file_path in file_paths
+    ]

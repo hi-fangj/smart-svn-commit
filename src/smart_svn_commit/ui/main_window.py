@@ -32,7 +32,7 @@ from .constants import CHECKBOX_COLUMN, PATH_COLUMN
 from .styles import UIStyles
 from .file_list_widget import FileListWidget
 from .context_menu import ContextMenuBuilder
-from .commit_message import generate_commit_message
+from ..ai.factory import generate_commit_message
 from ..core.parser import parse_svn_status, extract_path_from_display_text
 from ..core.commit import execute_svn_commit
 from ..core.config import load_config

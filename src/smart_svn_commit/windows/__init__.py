@@ -6,12 +6,12 @@ from .context_menu_installer import (
     register_context_menu,
     unregister_context_menu,
     is_context_menu_registered,
-    is_svn_working_copy,
     handle_context_menu,
     register_com_context_menu,
     unregister_com_context_menu,
     is_com_context_menu_registered,
 )
+from .svn_helpers import is_svn_working_copy
 
 __all__ = [
     "register_context_menu",

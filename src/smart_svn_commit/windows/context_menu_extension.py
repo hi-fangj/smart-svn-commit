@@ -28,26 +28,7 @@ if sys.platform == "win32":
 # {7C5E5F3D-E8F3-4A8B-9C2D-3F5E6D7C8B9A}
 CLSID_SVN_CONTEXT_MENU = "{7C5E5F3D-E8F3-4A8B-9C2D-3F5E6D7C8B9A}"
 
-
-def is_svn_working_copy(path: str) -> bool:
-    """
-    检查目录是否是 SVN 工作副本
-
-    Args:
-        path: 目录路径
-
-    Returns:
-        是否是 SVN 工作副本
-    """
-    try:
-        return (Path(path) / ".svn").is_dir()
-    except Exception:
-        return False
-
-
-def get_install_dir() -> Path:
-    """获取安装目录"""
-    return Path(__file__).parent.parent.parent.parent
+from .svn_helpers import is_svn_working_copy, get_install_dir
 
 
 class SVNContextMenuExtension:

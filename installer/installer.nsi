@@ -16,6 +16,136 @@
 
 ; 包含现代 UI
 !include "MUI2.nsh"
+!include "WinMessages.nsh"
+
+; StrReplace 宏实现
+!define StrReplace "!insertmacro StrReplace"
+!macro StrReplace Result String Substring Replacement
+  Push `${String}`
+  Push `${Substring}`
+  Push `${Replacement}`
+  Call StrReplace
+  Pop `${Result}`
+!macroend
+
+; 卸载版本的 StrReplace 宏
+!define un.StrReplace "!insertmacro un.StrReplace"
+!macro un.StrReplace Result String Substring Replacement
+  Push `${String}`
+  Push `${Substring}`
+  Push `${Replacement}`
+  Call un.StrReplace
+  Pop `${Result}`
+!macroend
+
+Function StrReplace
+  Exch $R2 ; replacement
+  Exch
+  Exch $R1 ; substring
+  Exch 2
+  Exch $R0 ; string
+  Push $R3
+  Push $R4
+  Push $R5
+  Push $R6
+  StrLen $R3 $R1
+  StrCpy $R4 0
+  loop:
+    StrCpy $R5 $R0 $R3 $R4
+    StrCmp $R5 $R1 replace
+    StrCmp $R5 "" done
+    IntOp $R4 $R4 + 1
+    Goto loop
+  replace:
+    StrCpy $R5 $R0 $R4
+    IntOp $R6 $R4 + $R3
+    StrCpy $R6 $R0 "" $R6
+    StrCpy $R0 "$R5$R2$R6"
+    IntOp $R4 $R4 + $R3
+    StrCmp $R5 "" done
+    Goto loop
+  done:
+  StrCpy $R0 $R0
+  Pop $R6
+  Pop $R5
+  Pop $R4
+  Pop $R3
+  Exch $R0
+FunctionEnd
+
+; 卸载版本的 StrReplace 函数
+Function un.StrReplace
+  Exch $R2 ; replacement
+  Exch
+  Exch $R1 ; substring
+  Exch 2
+  Exch $R0 ; string
+  Push $R3
+  Push $R4
+  Push $R5
+  Push $R6
+  StrLen $R3 $R1
+  StrCpy $R4 0
+  loop:
+    StrCpy $R5 $R0 $R3 $R4
+    StrCmp $R5 $R1 replace
+    StrCmp $R5 "" done
+    IntOp $R4 $R4 + 1
+    Goto loop
+  replace:
+    StrCpy $R5 $R0 $R4
+    IntOp $R6 $R4 + $R3
+    StrCpy $R6 $R0 "" $R6
+    StrCpy $R0 "$R5$R2$R6"
+    IntOp $R4 $R4 + $R3
+    StrCmp $R5 "" done
+    Goto loop
+  done:
+    StrCpy $R0 $R0
+    Pop $R6
+    Pop $R5
+    Pop $R4
+    Pop $R3
+    Exch $R0
+FunctionEnd
+
+; StrContains 宏实现
+!define StrContains "!insertmacro StrContains"
+!macro StrContains Result String Substring
+  Push `${String}`
+  Push `${Substring}`
+  Call StrContains
+  Pop `${Result}`
+!macroend
+
+Function StrContains
+  Exch $R2 ; substring
+  Exch
+  Exch $R1 ; string
+  Push $R0
+  Push $R3
+  Push $R4
+  Push $R5
+  StrLen $R3 $R2
+  StrCpy $R4 0
+  loop:
+    StrCpy $R5 $R1 $R3 $R4
+    StrCmp $R5 $R2 done
+    StrCmp $R5 "" done
+    IntOp $R4 $R4 + 1
+    Goto loop
+  done:
+  StrCpy $R0 $R1 "" $R4
+  StrCmp $R0 "" "" +2
+  StrCpy $R0 0
+  StrCmp $R0 0 +2
+  StrCpy $R0 1
+  Pop $R5
+  Pop $R4
+  Pop $R3
+  Pop $R1
+  Exch $R0
+FunctionEnd
 
 ; 通用设置
 Name "${DISPLAYNAME}"
@@ -94,8 +224,19 @@ Section "主程序" SecMain
     CreateShortCut "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk" "$INSTDIR\smart-svn-commit.exe" "" "$INSTDIR\smart-svn-commit.exe" 0
     CreateShortCut "$SMPROGRAMS\${APPNAME}\卸载.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
 
-    ; 注册到 PATH（可选）
-    ; Environ::Set "PATH" "$INSTDIR;$%PATH%"
+    ; 注册到用户 PATH 环境变量
+    ReadRegStr $0 HKCU "Environment" "PATH"
+    ${If} $0 == ""
+        WriteRegStr HKCU "Environment" "PATH" "$INSTDIR"
+    ${Else}
+        ; 检查 PATH 中是否已包含 $INSTDIR
+        ${StrContains} $2 "$INSTDIR" $0
+        ${If} $2 == "0"
+            WriteRegStr HKCU "Environment" "PATH" "$INSTDIR;$0"
+        ${EndIf}
+    ${EndIf}
+
+    ; 注意：PATH 更改需要重新打开命令行窗口才能生效
 
     ; 注册 COM Shell Extension 右键菜单（仅在 SVN 工作副本中显示）
     DetailPrint "正在注册右键菜单（仅在 SVN 工作副本中显示）..."
@@ -144,6 +285,19 @@ Section "Uninstall"
     Delete "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk"
     Delete "$SMPROGRAMS\${APPNAME}\卸载.lnk"
     RMDir "$SMPROGRAMS\${APPNAME}"
+
+    ; 从用户 PATH 中移除安装目录
+    ReadRegStr $0 HKCU "Environment" "PATH"
+    ${If} $0 != ""
+        ; 移除 $INSTDIR;$INSTDIR; 等变体
+        ; 方法: 使用 StrReplace 替换为空字符串
+        !insertmacro un.StrReplace $1 "$INSTDIR;" "" $0
+        !insertmacro un.StrReplace $2 ";$INSTDIR" "" $1
+        !insertmacro un.StrReplace $3 "$INSTDIR" "" $2
+        WriteRegStr HKCU "Environment" "PATH" $3
+    ${EndIf}
+
+    ; 注意：PATH 更改需要重新打开命令行窗口才能生效
 
     ; 删除注册表项
     DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}"

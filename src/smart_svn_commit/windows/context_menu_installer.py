@@ -16,6 +16,7 @@ from .registry import (
     registry_key_exists,
     set_registry_value,
 )
+from .svn_helpers import is_svn_working_copy, get_install_dir
 
 # COM 扩展模块路径
 CONTEXT_MENU_EXTENSION_MODULE = "smart_svn_commit.windows.context_menu_extension"
@@ -37,19 +38,6 @@ CONTEXT_MENU_KEY_PATH = CONTEXT_MENU_BG_KEY_PATH
 CONTEXT_MENU_COMMAND_KEY_PATH = CONTEXT_MENU_BG_COMMAND_KEY_PATH
 
 
-def is_svn_working_copy(path: str) -> bool:
-    """
-    检查目录是否是 SVN 工作副本
-
-    Args:
-        path: 目录路径
-
-    Returns:
-        是否是 SVN 工作副本
-    """
-    return (Path(path) / ".svn").is_dir()
-
-
 def handle_context_menu(path: str) -> None:
     """
     处理右键菜单调用（从注册表命令调用）
@@ -65,7 +53,7 @@ def handle_context_menu(path: str) -> None:
     # 是 SVN 目录，启动 GUI
     try:
         # 获取当前脚本所在目录的安装路径
-        install_dir = Path(__file__).parent.parent.parent.parent
+        install_dir = get_install_dir()
         if (install_dir / "smart_svn_commit").exists():
             src_dir = install_dir / "src"
             sys.path.insert(0, str(src_dir))
@@ -119,7 +107,7 @@ def handle_file_context_menu(file_path: str) -> None:
     # 是 SVN 工作副本，启动 GUI 并显示该文件
     try:
         # 获取当前脚本所在目录的安装路径
-        install_dir = Path(__file__).parent.parent.parent.parent
+        install_dir = get_install_dir()
         if (install_dir / "smart_svn_commit").exists():
             src_dir = install_dir / "src"
             sys.path.insert(0, str(src_dir))
@@ -160,7 +148,7 @@ def get_install_command(menu_type: str = "dir") -> str:
 
     # 开发环境：使用 Python 解释器
     python_exe = sys.executable
-    install_dir = Path(__file__).parent.parent.parent.parent.resolve()
+    install_dir = get_install_dir().resolve()
     install_dir_str = str(install_dir).replace("\\", "\\\\")
 
     # 使用 menu_check.py 作为入口点，它会先检查是否是 SVN 工作副本
@@ -298,7 +286,7 @@ def register_com_context_menu() -> bool:
             DllRegisterServer()
         else:
             # 开发环境：通过 subprocess 执行脚本
-            install_dir = Path(__file__).parent.parent.parent.parent.resolve()
+            install_dir = get_install_dir().resolve()
             src_dir = install_dir / "src"
             extension_module = src_dir / "smart_svn_commit" / "windows" / "context_menu_extension.py"
 
@@ -341,7 +329,7 @@ def unregister_com_context_menu() -> bool:
             DllUnregisterServer()
         else:
             # 开发环境：通过 subprocess 执行脚本
-            install_dir = Path(__file__).parent.parent.parent.parent.resolve()
+            install_dir = get_install_dir().resolve()
             src_dir = install_dir / "src"
             extension_module = src_dir / "smart_svn_commit" / "windows" / "context_menu_extension.py"
 

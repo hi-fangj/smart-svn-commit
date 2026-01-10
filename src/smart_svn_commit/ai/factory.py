@@ -4,10 +4,9 @@
 
 from typing import List
 
-from ..core.config import load_config
 from .diff import get_multiple_files_diff
 from .fallback import generate_commit_message_by_keywords
-from .generator import generate_commit_message_with_ai
+from .generator import DEFAULT_MESSAGE, generate_commit_message_with_ai
 
 
 def generate_commit_message(files: List[str]) -> str:
@@ -22,14 +21,13 @@ def generate_commit_message(files: List[str]) -> str:
         生成的提交消息字符串
     """
     if not files:
-        return "chore: 提交变更"
+        return DEFAULT_MESSAGE
 
-    config = load_config()
     files_with_diff = get_multiple_files_diff(files)
 
     # 尝试使用 AI API 生成
-    api_message = generate_commit_message_with_ai(files_with_diff, config)
-    if api_message != "chore: 提交变更":
+    api_message = generate_commit_message_with_ai(files_with_diff)
+    if api_message != DEFAULT_MESSAGE:
         return api_message
 
     # 降级到关键词匹配

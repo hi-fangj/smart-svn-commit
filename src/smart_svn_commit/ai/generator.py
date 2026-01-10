@@ -3,21 +3,44 @@ AI 提交消息生成器
 """
 
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 # OpenAI SDK 导入
 try:
     from openai import OpenAI as OpenAIClient
-
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
 
 from ..core.config import load_config
 
+# 默认常量
+DEFAULT_MESSAGE = "chore: 提交变更"
+DEFAULT_MAX_DIFF_LENGTH = 2000
+DEFAULT_TEMPERATURE = 0.3
+DEFAULT_MAX_TOKENS = 200
+DEFAULT_TIMEOUT = 30.0
+
+# 默认提示词
+DEFAULT_SYSTEM_PROMPT = """你是一个专业的代码提交消息生成助手。请根据代码的 diff 内容生成符合 Conventional Commits 格式的提交消息。
+
+格式要求：
+- 格式：<类型>(<范围>): <简短描述>
+- 类型：feat（新功能）、fix（修复bug）、docs（文档）、style（格式）、refactor（重构）、perf（性能）、test（测试）、chore（构建/工具）
+- 范围：根据文件路径和变更内容判断，如 ui、battle、player、network、config 等
+- 描述：简洁明了地说明变更内容，使用中文
+
+请只返回提交消息本身，不要包含任何解释或额外内容。"""
+
+DEFAULT_USER_TEMPLATE = """请根据以下代码变更生成提交消息：
+
+{diff_summary}
+
+请直接返回提交消息，格式如：feat(battle): 添加新的战斗技能系统"""
+
 
 def generate_commit_message_with_ai(
-    files_with_diff: List[Dict[str, str]], config: Optional[Dict[str, Any]] = None
+    files_with_diff: List[Dict[str, str]], config: Dict[str, Any] | None = None
 ) -> str:
     """
     使用 OpenAI SDK 生成提交消息
@@ -29,14 +52,11 @@ def generate_commit_message_with_ai(
     Returns:
         生成的提交消息，如果失败则返回默认消息
     """
-    DEFAULT_MESSAGE = "chore: 提交变更"
-
     if config is None:
         config = load_config()
 
-    api_config = config.get("aiApi", {})
-
     # 检查 API 配置
+    api_config = config.get("aiApi", {})
     if not api_config.get("enabled", False):
         return DEFAULT_MESSAGE
 
@@ -52,52 +72,68 @@ def generate_commit_message_with_ai(
         return DEFAULT_MESSAGE
 
     # 构建 diff 摘要
-    diff_summary = "\n\n".join(
-        [
-            f"文件: {f['path']}\n变更内容:\n{f['diff'][:2000]}"
-            for f in files_with_diff
-            if f.get("diff")
-        ]
-    )
-
+    diff_summary = _build_diff_summary(files_with_diff)
     if not diff_summary:
         return DEFAULT_MESSAGE
 
-    # 从配置读取提示词
+    # 获取提示词
     prompts_config = api_config.get("prompts", {})
-
-    default_system_prompt = """你是一个专业的代码提交消息生成助手。请根据代码的 diff 内容生成符合 Conventional Commits 格式的提交消息。
-
-格式要求：
-- 格式：<类型>(<范围>): <简短描述>
-- 类型：feat（新功能）、fix（修复bug）、docs（文档）、style（格式）、refactor（重构）、perf（性能）、test（测试）、chore（构建/工具）
-- 范围：根据文件路径和变更内容判断，如 ui、battle、player、network、config 等
-- 描述：简洁明了地说明变更内容，使用中文
-
-请只返回提交消息本身，不要包含任何解释或额外内容。"""
-
-    default_user_template = """请根据以下代码变更生成提交消息：
-
-{diff_summary}
-
-请直接返回提交消息，格式如：feat(battle): 添加新的战斗技能系统"""
-
-    system_prompt = prompts_config.get("system", default_system_prompt)
-    user_template = prompts_config.get("user", default_user_template)
+    system_prompt = prompts_config.get("system", DEFAULT_SYSTEM_PROMPT)
+    user_template = prompts_config.get("user", DEFAULT_USER_TEMPLATE)
     user_prompt = user_template.format(diff_summary=diff_summary)
 
+    # 调用 API
+    return _call_openai_api(base_url, api_key, model, system_prompt, user_prompt)
+
+
+def _build_diff_summary(files_with_diff: List[Dict[str, str]]) -> str:
+    """
+    构建 diff 摘要字符串
+
+    Args:
+        files_with_diff: 包含 path 和 diff 的字典列表
+
+    Returns:
+        diff 摘要字符串
+    """
+    diff_parts = []
+    for file_info in files_with_diff:
+        diff = file_info.get("diff", "")
+        if diff:
+            path = file_info.get("path", "")
+            truncated_diff = diff[:DEFAULT_MAX_DIFF_LENGTH]
+            diff_parts.append(f"文件: {path}\n变更内容:\n{truncated_diff}")
+
+    return "\n\n".join(diff_parts)
+
+
+def _call_openai_api(
+    base_url: str, api_key: str, model: str, system_prompt: str, user_prompt: str
+) -> str:
+    """
+    调用 OpenAI API 生成提交消息
+
+    Args:
+        base_url: API 基础 URL
+        api_key: API 密钥
+        model: 模型名称
+        system_prompt: 系统提示词
+        user_prompt: 用户提示词
+
+    Returns:
+        生成的提交消息，失败时返回默认消息
+    """
     try:
         client = OpenAIClient(api_key=api_key, base_url=base_url)
-
         response = client.chat.completions.create(
             model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=0.3,
-            max_tokens=200,
-            timeout=30.0,
+            temperature=DEFAULT_TEMPERATURE,
+            max_tokens=DEFAULT_MAX_TOKENS,
+            timeout=DEFAULT_TIMEOUT,
         )
 
         if response.choices and response.choices[0].message.content:
