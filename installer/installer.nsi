@@ -6,7 +6,7 @@
 !define DESCRIPTION "AI 驱动的 SVN 提交助手"
 !define VERSIONMAJOR 2
 !define VERSIONMINOR 3
-!define VERSIONBUILD 1
+!define VERSIONBUILD 2
 !define HELPURL "https://github.com/hi-fangj/smart-svn-commit" ; 请修改为实际的仓库 URL
 !define UPDATEURL "https://github.com/hi-fangj/smart-svn-commit"
 !define ABOUTURL "https://github.com/hi-fangj/smart-svn-commit"
@@ -97,12 +97,12 @@ Section "主程序" SecMain
     ; 注册到 PATH（可选）
     ; Environ::Set "PATH" "$INSTDIR;$%PATH%"
 
-    ; 注册右键菜单
-    DetailPrint "正在注册右键菜单..."
-    nsExec::ExecToLog '"$INSTDIR\smart-svn-commit.exe" --context-menu install'
+    ; 注册 COM Shell Extension 右键菜单（仅在 SVN 工作副本中显示）
+    DetailPrint "正在注册右键菜单（仅在 SVN 工作副本中显示）..."
+    nsExec::ExecToLog '"$INSTDIR\smart-svn-commit.exe" --context-menu install-com'
     Pop $0
     ${If} $0 != "0"
-        MessageBox MB_OK "右键菜单注册失败，请稍后手动运行: smart-svn-commit.exe --context-menu install"
+        MessageBox MB_OK "右键菜单注册失败，请稍后手动运行: smart-svn-commit.exe --context-menu install-com"
     ${EndIf}
 
     ; 写入卸载信息
@@ -130,9 +130,9 @@ SectionEnd
 ; 卸载程序节
 Section "Uninstall"
 
-    ; 卸载右键菜单
+    ; 卸载 COM Shell Extension 右键菜单
     DetailPrint "正在卸载右键菜单..."
-    nsExec::ExecToLog '"$INSTDIR\smart-svn-commit.exe" --context-menu uninstall'
+    nsExec::ExecToLog '"$INSTDIR\smart-svn-commit.exe" --context-menu uninstall-com'
     Pop $0
 
     ; 删除文件
