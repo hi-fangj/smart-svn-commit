@@ -55,6 +55,9 @@ class SettingsDialog(QDialog):
         commit_tab = self._create_placeholder_tab("提交设置", "未来可添加：提交类型、范围列表、忽略规则等设置")
         tab_widget.addTab(commit_tab, "提交设置")
 
+        # 默认显示第一个标签页（AI 配置）
+        tab_widget.setCurrentIndex(0)
+
         layout.addWidget(tab_widget)
 
         # 按钮布局

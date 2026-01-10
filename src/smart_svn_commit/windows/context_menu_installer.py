@@ -163,7 +163,11 @@ def _build_python_command(menu_type: str) -> str:
     Returns:
         完整的 Python 命令字符串
     """
+    # 使用 pythonw.exe 避免显示控制台窗口
     python_exe = sys.executable
+    if python_exe.lower().endswith("python.exe"):
+        python_exe = str(Path(python_exe).parent / "pythonw.exe")
+
     install_dir = get_install_dir().resolve()
     install_dir_str = str(install_dir).replace("\\", "\\\\")
 
@@ -223,22 +227,24 @@ def _register_single_menu(menu_type: str, command: str) -> bool:
     """
     key_path, command_key_path = _MENU_REGISTRY_PATHS[menu_type]
 
-    # 获取 exe 路径用于图标
+    # 获取图标路径
     if getattr(sys, "frozen", False):
-        # PyInstaller 打包环境
-        exe_path = sys.executable
+        # PyInstaller 打包环境：使用 exe 内嵌图标
+        icon_path = sys.executable
+        icon_value = f'"{icon_path}",0'
     else:
-        # 开发环境，使用 Python 解释器作为图标源
-        exe_path = sys.executable
+        # 开发环境：使用 icon.ico 文件
+        icon_path = get_install_dir() / "icon.ico"
+        icon_value = f'"{icon_path}"'
 
     if not set_registry_value(
         winreg.HKEY_CURRENT_USER, key_path, "", "Smart SVN Commit"
     ):
         return False
 
-    # 设置图标（使用 exe 内嵌图标）
+    # 设置图标
     if not set_registry_value(
-        winreg.HKEY_CURRENT_USER, key_path, "Icon", f'"{exe_path}",0'
+        winreg.HKEY_CURRENT_USER, key_path, "Icon", icon_value
     ):
         return False
 

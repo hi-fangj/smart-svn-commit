@@ -56,12 +56,14 @@ class FileListWidget:
         # 设置状态文字和路径
         tree_item.setText(PATH_COLUMN, f"[{status}] {path}")
 
-        # 设置文件图标
+        # 设置文件图标（目录和文件使用统一的颜色，只区分 SVN 状态）
         icon = self._icon_cache.get(path)
         tree_item.setIcon(PATH_COLUMN, icon)
 
-        # 使用状态颜色作为字体颜色
+        # 使用状态颜色作为字体颜色，文件和目录统一
         color = STATUS_COLORS.get(status, "#000000")
+        if color not in self._color_brushes:
+            self._color_brushes[color] = QBrush(QColor(color))
         tree_item.setForeground(PATH_COLUMN, self._color_brushes[color])
 
         self.tree.addTopLevelItem(tree_item)
