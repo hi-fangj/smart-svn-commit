@@ -291,22 +291,23 @@ def register_com_context_menu() -> bool:
         是否成功
     """
     try:
-        # 获取安装目录
-        install_dir = Path(__file__).parent.parent.parent.parent.resolve()
-        src_dir = install_dir / "src"
-        extension_module = src_dir / "smart_svn_commit" / "windows" / "context_menu_extension.py"
+        # PyInstaller 打包环境：直接调用注册函数
+        if getattr(sys, "frozen", False):
+            from smart_svn_commit.windows.context_menu_extension import DllRegisterServer
 
-        # 构建注册命令
-        python_exe = sys.executable
-        cmd = [
-            python_exe,
-            str(extension_module),
-        ]
+            DllRegisterServer()
+        else:
+            # 开发环境：通过 subprocess 执行脚本
+            install_dir = Path(__file__).parent.parent.parent.parent.resolve()
+            src_dir = install_dir / "src"
+            extension_module = src_dir / "smart_svn_commit" / "windows" / "context_menu_extension.py"
 
-        # 执行注册
-        result = subprocess.run(
-            cmd, check=True, capture_output=True, text=True, cwd=str(src_dir)
-        )
+            python_exe = sys.executable
+            cmd = [python_exe, str(extension_module)]
+
+            result = subprocess.run(
+                cmd, check=True, capture_output=True, text=True, cwd=str(src_dir)
+            )
 
         # 重启资源管理器
         _restart_explorer()
@@ -333,23 +334,27 @@ def unregister_com_context_menu() -> bool:
         是否成功
     """
     try:
-        # 获取安装目录
-        install_dir = Path(__file__).parent.parent.parent.parent.resolve()
-        src_dir = install_dir / "src"
-        extension_module = src_dir / "smart_svn_commit" / "windows" / "context_menu_extension.py"
+        # PyInstaller 打包环境：直接调用卸载函数
+        if getattr(sys, "frozen", False):
+            from smart_svn_commit.windows.context_menu_extension import DllUnregisterServer
 
-        # 构建卸载命令
-        python_exe = sys.executable
-        cmd = [
-            python_exe,
-            str(extension_module),
-            "--unregister",
-        ]
+            DllUnregisterServer()
+        else:
+            # 开发环境：通过 subprocess 执行脚本
+            install_dir = Path(__file__).parent.parent.parent.parent.resolve()
+            src_dir = install_dir / "src"
+            extension_module = src_dir / "smart_svn_commit" / "windows" / "context_menu_extension.py"
 
-        # 执行卸载
-        result = subprocess.run(
-            cmd, check=False, capture_output=True, text=True, cwd=str(src_dir)
-        )
+            python_exe = sys.executable
+            cmd = [
+                python_exe,
+                str(extension_module),
+                "--unregister",
+            ]
+
+            result = subprocess.run(
+                cmd, check=False, capture_output=True, text=True, cwd=str(src_dir)
+            )
 
         # 重启资源管理器
         _restart_explorer()

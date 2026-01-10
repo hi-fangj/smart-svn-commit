@@ -305,12 +305,34 @@ class SVNContextMenuExtension:
 
 def DllRegisterServer():
     """
-    注册 COM 组件
+    注册 COM 组件到 HKEY_CURRENT_USER（不需要管理员权限）
     """
-    import win32com.server.register
+    # 获取 Python 解释器路径（用于 PythonCOM 注册）
+    import pythoncom
 
-    # 注册 COM 组件
-    win32com.server.register.UseCommandLine(SVNContextMenuExtension)
+    pythoncom_path = pythoncom.__file__
+    if getattr(sys, "frozen", False):
+        # PyInstaller 打包环境
+        pythoncom_path = sys.executable
+
+    # 手动注册 COM 组件到 HKEY_CURRENT_USER
+    clsid_key = rf"Software\Classes\CLSID\{CLSID_SVN_CONTEXT_MENU}"
+
+    try:
+        # 注册 CLSID
+        key = win32api.RegCreateKey(win32con.HKEY_CURRENT_USER, clsid_key)
+        win32api.RegSetValueEx(key, None, 0, win32con.REG_SZ, SVNContextMenuExtension._reg_desc_)
+        win32api.RegCloseKey(key)
+
+        # 注册 InprocServer32
+        inproc_key = f"{clsid_key}\\InprocServer32"
+        key = win32api.RegCreateKey(win32con.HKEY_CURRENT_USER, inproc_key)
+        # 使用 pythoncom.dll 作为 COM 服务器
+        win32api.RegSetValueEx(key, None, 0, win32con.REG_SZ, pythoncom_path)
+        win32api.RegCloseKey(key)
+
+    except Exception as e:
+        print(f"注册 COM 组件失败: {e}", file=sys.stderr)
 
     # 注册右键菜单处理程序
     # 文件夹背景
@@ -348,10 +370,21 @@ def DllUnregisterServer():
     """
     卸载 COM 组件
     """
-    import win32com.server.register
+    # 删除 CLSID 注册
+    clsid_key = rf"Software\Classes\CLSID\{CLSID_SVN_CONTEXT_MENU}"
 
-    # 卸载 COM 组件
-    win32com.server.register.UseCommandLine(SVNContextMenuExtension)
+    try:
+        # 先删除子键 InprocServer32
+        inproc_key = f"{clsid_key}\\InprocServer32"
+        win32api.RegDeleteKey(win32con.HKEY_CURRENT_USER, inproc_key)
+    except Exception:
+        pass
+
+    try:
+        # 删除 CLSID 主键
+        win32api.RegDeleteKey(win32con.HKEY_CURRENT_USER, clsid_key)
+    except Exception:
+        pass
 
     # 删除右键菜单处理程序注册
     keys_to_delete = [
@@ -363,7 +396,7 @@ def DllUnregisterServer():
     for key_path in keys_to_delete:
         try:
             win32api.RegDeleteKey(win32con.HKEY_CURRENT_USER, key_path)
-        except Exception as e:
+        except Exception:
             pass  # 键不存在，忽略
 
     print("COM Shell Extension 已卸载", file=sys.stderr)
