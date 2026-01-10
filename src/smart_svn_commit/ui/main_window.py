@@ -91,14 +91,11 @@ def show_quick_pick(items: Optional[List[Tuple[str, str]]] = None) -> Dict[str, 
     window.setWindowTitle("SVN 提交助手")
     window.resize(900, 600)
 
-    # 创建菜单栏
+    # 创建菜单栏，直接添加设置动作（点击直接打开对话框）
     menubar = window.menuBar()
-    settings_menu = menubar.addMenu("设置")
-
-    # 设置菜单项
     settings_action = QAction("设置", window)
     settings_action.triggered.connect(lambda: SettingsDialog(window).exec_())
-    settings_menu.addAction(settings_action)
+    menubar.addAction(settings_action)
 
     # 中心部件
     central_widget = QWidget()
