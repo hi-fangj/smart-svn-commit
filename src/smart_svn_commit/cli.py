@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from smart_svn_commit import __version__
 from smart_svn_commit.ai.factory import generate_commit_message
 from smart_svn_commit.core.commit import run_svn_status
 from smart_svn_commit.core.config import get_config_path, init_config, load_config
@@ -115,7 +116,7 @@ def main() -> int:
         """,
     )
 
-    parser.add_argument("--version", action="version", version="%(prog)s 1.0.0")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
 
     parser.add_argument("--files", type=str, help="逗号分隔的文件列表")
 

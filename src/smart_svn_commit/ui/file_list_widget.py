@@ -57,7 +57,7 @@ class FileListWidget:
         tree_item.setText(PATH_COLUMN, f"[{status}] {path}")
 
         # 设置文件图标
-        icon = self._icon_cache.get_icon(path)
+        icon = self._icon_cache.get(path)
         tree_item.setIcon(PATH_COLUMN, icon)
 
         # 使用状态颜色作为字体颜色

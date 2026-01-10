@@ -3,8 +3,10 @@
 """
 
 from typing import TYPE_CHECKING
-from PyQt5.QtWidgets import QMenu, QAction, QWidget
+from pathlib import Path
+from PyQt5.QtWidgets import QMenu, QAction, QWidget, QStyle, QFileIconProvider
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon
 
 from .menu_constants import (
     MenuAction,
@@ -41,6 +43,7 @@ class ContextMenuBuilder:
         self._parent = parent_widget
         self._style = parent_widget.style()
         self._refresh_callback = refresh_callback
+        self._icon_provider = QFileIconProvider()
 
     def build_menu(self, file_path: str, status: str, parent: QWidget) -> QMenu:
         """
@@ -81,10 +84,9 @@ class ContextMenuBuilder:
         """
         menu_action = QAction(MENU_ACTION_LABELS[action], menu)
 
-        # 设置图标
-        icon_standard_pixmap = MENU_ACTION_ICONS.get(action)
-        if icon_standard_pixmap is not None:
-            icon = self._style.standardIcon(icon_standard_pixmap)
+        # 设置图标（使用多级备选方案）
+        icon = self._get_action_icon(action, file_path)
+        if icon and not icon.isNull():
             menu_action.setIcon(icon)
 
         # 连接信号
@@ -97,6 +99,42 @@ class ContextMenuBuilder:
         # 在特定位置添加分隔符
         if action in self.SEPARATOR_AFTER_ACTIONS:
             menu.addSeparator()
+
+    def _get_action_icon(self, action: str, file_path: str) -> QIcon:
+        """
+        获取菜单操作对应的图标（多级备选方案）
+
+        Args:
+            action: 操作类型
+            file_path: 文件路径
+
+        Returns:
+            图标对象（可能为空）
+        """
+        # 1. 尝试使用标准图标
+        icon_standard_pixmap = MENU_ACTION_ICONS.get(action)
+        if icon_standard_pixmap is not None:
+            icon = self._style.standardIcon(icon_standard_pixmap)
+            if not icon.isNull():
+                return icon
+
+        # 2. 对于文件操作，使用系统图标
+        if action in (MenuAction.OPEN_FILE, MenuAction.OPEN_FOLDER):
+            try:
+                path_obj = Path(file_path)
+                if path_obj.exists():
+                    if action == MenuAction.OPEN_FOLDER or path_obj.is_dir():
+                        return self._icon_provider.icon(QFileIconProvider.Folder)
+                    else:
+                        return self._icon_provider.icon(QFileIconProvider.File)
+            except Exception:
+                pass
+
+        # 3. 最后使用通用的文件/文件夹图标
+        if action in (MenuAction.DIFF, MenuAction.LOG, MenuAction.BLAME):
+            return self._style.standardIcon(QStyle.SP_FileIcon)
+
+        return QIcon()
 
     def _execute_action(self, action: str, file_path: str) -> None:
         """执行菜单操作"""
