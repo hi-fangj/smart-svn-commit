@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from PyQt5.QtCore import QEvent, QObject, Qt, pyqtSlot
 from PyQt5.QtWidgets import (
+    QAction,
     QApplication,
     QCheckBox,
     QComboBox,
@@ -15,6 +16,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMainWindow,
     QMessageBox,
     QPushButton,
     QSplitter,
