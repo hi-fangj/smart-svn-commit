@@ -143,3 +143,7 @@ cython_debug/
 Thumbs.db
 .claude/settings.local.json
 *.exe
+
+# Project-specific
+openspec/
+tests/
