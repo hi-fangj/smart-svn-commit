@@ -1,16 +1,77 @@
 """
-配置管理模块
+配置管理模块（支持配置缓存）
 """
 
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, Optional
 
 # 配置文件名
 PROJECT_CONFIG_NAME = ".smart-svn-commit.json"
 USER_CONFIG_DIR = "smart-svn-commit"
 USER_CONFIG_NAME = "config.json"
+
+
+class ConfigManager:
+    """配置管理器 - 单例模式，支持配置缓存"""
+
+    _instance: Optional["ConfigManager"] = None
+    _config: Optional[Dict[str, Any]] = None
+    _config_path: Optional[Path] = None
+
+    def __new__(cls) -> "ConfigManager":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    @classmethod
+    def get_config(cls, force_reload: bool = False) -> Dict[str, Any]:
+        """
+        获取配置（带缓存）
+
+        Args:
+            force_reload: 是否强制重新加载
+
+        Returns:
+            配置字典
+        """
+        if cls._config is None or force_reload:
+            cls._config = load_config()
+            cls._config_path = get_config_path()
+        return cls._config
+
+    @classmethod
+    def save_config(cls, config: Dict[str, Any]) -> bool:
+        """
+        保存配置并更新缓存
+
+        Args:
+            config: 配置字典
+
+        Returns:
+            是否保存成功
+        """
+        result = save_config(config)
+        if result:
+            cls._config = config
+        return result
+
+    @classmethod
+    def reload(cls) -> Dict[str, Any]:
+        """
+        重新加载配置
+
+        Returns:
+            配置字典
+        """
+        return cls.get_config(force_reload=True)
+
+    @classmethod
+    def reset(cls) -> None:
+        """重置配置缓存"""
+        cls._config = None
+        cls._config_path = None
 
 
 def get_config_path() -> Path:
@@ -46,7 +107,7 @@ def _get_user_config_dir() -> Path:
     return Path.home() / ".config" / USER_CONFIG_DIR
 
 
-def get_default_config() -> dict[str, Any]:
+def get_default_config() -> Dict[str, Any]:
     """
     获取默认配置
 
@@ -116,7 +177,7 @@ def get_default_config() -> dict[str, Any]:
     }
 
 
-def load_config() -> dict[str, Any]:
+def load_config() -> Dict[str, Any]:
     """
     加载配置文件
 
@@ -141,7 +202,7 @@ def load_config() -> dict[str, Any]:
     return get_default_config()
 
 
-def _load_json_file(path: Path) -> dict[str, Any] | None:
+def _load_json_file(path: Path) -> Optional[Dict[str, Any]]:
     """
     从文件加载 JSON 配置
 
@@ -159,7 +220,16 @@ def _load_json_file(path: Path) -> dict[str, Any] | None:
         return None
 
 
-def save_config(config: dict[str, Any], config_path: Path | None = None) -> bool:
+# 全局配置管理器实例
+_config_manager = ConfigManager()
+
+
+def get_config_manager() -> ConfigManager:
+    """获取全局配置管理器实例"""
+    return _config_manager
+
+
+def save_config(config: Dict[str, Any], config_path: Optional[Path] = None) -> bool:
     """
     保存配置文件
 

@@ -41,6 +41,37 @@ if WINDOWS_AVAILABLE:
         WINDOWS_AVAILABLE = False
 
 
+def _check_ui_availability() -> None:
+    """
+    检查 UI 是否可用，不可用时输出错误并退出
+
+    Raises:
+        SystemExit: 当 UI 不可用时以退出码 1 退出
+    """
+    if not UI_AVAILABLE:
+        print("错误: PyQt5 未安装，无法使用 GUI", file=sys.stderr)
+        print("请运行: pip install PyQt5", file=sys.stderr)
+        sys.exit(1)
+
+
+def _change_directory_safely(path: Path) -> bool:
+    """
+    安全地切换工作目录
+
+    Args:
+        path: 目标目录路径
+
+    Returns:
+        是否成功切换目录
+    """
+    try:
+        os.chdir(path)
+        return True
+    except (FileNotFoundError, PermissionError, NotADirectoryError) as e:
+        print(f"错误: 无法访问目录 {path}: {e}", file=sys.stderr)
+        return False
+
+
 def output_result(result: Dict[str, Any]) -> None:
     """输出 JSON 格式结果"""
     print(json.dumps(result, ensure_ascii=False, indent=2))
@@ -178,12 +209,11 @@ def main() -> int:
 
     # 处理 --file 参数（异步加载，立即显示 UI）
     if args.file:
-        if not UI_AVAILABLE:
-            print("错误: PyQt5 未安装，无法使用 GUI", file=sys.stderr)
-            return 1
+        _check_ui_availability()
         # 切换到文件所在目录
         file_path = Path(args.file).resolve()
-        os.chdir(file_path.parent)
+        if not _change_directory_safely(file_path.parent):
+            return 1
         # 传入 None 表示异步加载（UI 立即显示，后台加载）
         # 但对于单文件模式，直接创建列表即可，不需要异步
         files = [("M", str(file_path.name))]
@@ -193,15 +223,14 @@ def main() -> int:
 
     # 处理 --dir 参数（异步加载，立即显示 UI）
     if args.dir:
-        if not UI_AVAILABLE:
-            print("错误: PyQt5 未安装，无法使用 GUI", file=sys.stderr)
-            return 1
+        _check_ui_availability()
         # 切换到指定目录
         dir_path = Path(args.dir).resolve()
         if not dir_path.is_dir():
             print(f"错误: 目录不存在: {args.dir}", file=sys.stderr)
             return 1
-        os.chdir(dir_path)
+        if not _change_directory_safely(dir_path):
+            return 1
         # 传入 None 表示异步加载（UI 立即显示，后台加载文件列表）
         result = show_quick_pick(None)
         output_result(result)

@@ -6,6 +6,12 @@ import re
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from .regex_cache import get_global_cache
+
+
+# 全局正则缓存实例
+_regex_cache = get_global_cache()
+
 
 def apply_ignore_patterns(
     files: List[Tuple[str, str]], ignore_patterns: List[str]
@@ -70,7 +76,7 @@ def wildcard_filter(
     pattern: str, items: List[Tuple[str, str]]
 ) -> List[Tuple[str, str]]:
     """
-    使用通配符过滤文件列表
+    使用通配符过滤文件列表（使用缓存优化）
 
     支持的通配符模式：
     - *.cs : 匹配所有 .cs 文件
@@ -92,7 +98,7 @@ def wildcard_filter(
     regex_pattern = f"^{regex_pattern}$"
 
     try:
-        regex = re.compile(regex_pattern, re.IGNORECASE)
+        regex = _regex_cache.get(regex_pattern)
         return [(status, path) for status, path in items if regex.search(path)]
     except re.error:
         # 正则表达式无效，返回空列表

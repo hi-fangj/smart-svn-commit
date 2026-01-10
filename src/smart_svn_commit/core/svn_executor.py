@@ -4,32 +4,22 @@ SVN 命令执行器 - 统一处理所有 SVN 相关操作
 
 import subprocess
 import sys
+from typing import Any, Dict, Optional
 
 # TortoiseProc 命令前缀
 TORTOISE_PROC = "TortoiseProc.exe"
 TORTOISE_PATH_ARG = "/path:"
 
-# 命令映射
-TORTOISE_COMMANDS = {
-    "diff": "/command:diff",
-    "log": "/command:log",
-    "blame": "/command:blame",
-    "revert": "/command:revert",
-    "add": "/command:add",
-    "delete": "/command:remove",
-}
 
-SVN_COMMANDS = {
-    "diff": "diff",
-    "log": "log",
-    "blame": "blame",
-    "revert": "revert",
-    "add": "add",
-    "delete": "delete",
+# 命令配置（合并 Tortoise 和 SVN 命令映射）
+COMMAND_CONFIG: Dict[str, Dict[str, Any]] = {
+    "diff": {"tortoise": "/command:diff", "svn": "diff", "modifying": False},
+    "log": {"tortoise": "/command:log", "svn": "log", "modifying": False},
+    "blame": {"tortoise": "/command:blame", "svn": "blame", "modifying": False},
+    "revert": {"tortoise": "/command:revert", "svn": "revert", "modifying": True},
+    "add": {"tortoise": "/command:add", "svn": "add", "modifying": True},
+    "delete": {"tortoise": "/command:remove", "svn": "delete", "modifying": True},
 }
-
-# 修改类命令（需要等待结果）
-MODIFYING_COMMANDS = {"revert", "add", "delete"}
 
 
 class SVNCommandExecutor:
@@ -48,7 +38,7 @@ class SVNCommandExecutor:
         except (FileNotFoundError, OSError):
             return False
 
-    def _run_svn_command(self, svn_cmd: str, file_path: str) -> bool | None:
+    def _run_svn_command(self, svn_cmd: str, file_path: str) -> Optional[bool]:
         """
         运行 SVN 命令
 
@@ -70,7 +60,7 @@ class SVNCommandExecutor:
             print(f"无法执行 SVN 命令: {e}", file=sys.stderr)
             return False
 
-    def _execute_command(self, operation: str, file_path: str) -> bool | None:
+    def _execute_command(self, operation: str, file_path: str) -> Optional[bool]:
         """
         执行 SVN 操作（统一入口）
 
@@ -81,12 +71,15 @@ class SVNCommandExecutor:
         Returns:
             None 对于异步命令，True/False 对于同步命令
         """
-        tortoise_cmd = TORTOISE_COMMANDS.get(operation, "")
+        config = COMMAND_CONFIG.get(operation, {})
+        tortoise_cmd = config.get("tortoise", "")
+        svn_cmd = config.get("svn", "")
+        is_modifying = config.get("modifying", False)
+
         if self._try_tortoise(tortoise_cmd, file_path):
             return True
 
-        svn_cmd = SVN_COMMANDS.get(operation, "")
-        if operation in MODIFYING_COMMANDS:
+        if is_modifying:
             return self._run_svn_command(svn_cmd, file_path)
         else:
             self._run_svn_command(svn_cmd, file_path)

@@ -2,7 +2,7 @@
 设置对话框模块
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
@@ -169,7 +169,7 @@ class SettingsDialog(QDialog):
         ai_config = default_config.get("aiApi", {})
         self._load_ai_config_to_form(ai_config)
 
-    def _validate_config(self) -> tuple[bool, str]:
+    def _validate_config(self) -> Tuple[bool, str]:
         """验证配置"""
         if not self._enabled_checkbox.isChecked():
             return True, ""
