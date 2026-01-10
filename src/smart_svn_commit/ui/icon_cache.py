@@ -63,13 +63,12 @@ class IconCache:
 
     def _fetch_icon(self, file_path: str) -> QIcon:
         """
-        获取图标
+        获取图标（按后缀名获取，不检查文件是否存在）
 
         优先级：
-        1. 系统图标（QFileIconProvider，文件存在时）
-        2. 根据文件类型获取系统图标（文件不存在时）
-        3. 标准图标（QStyle）
-        4. 空图标
+        1. 系统图标（QFileIconProvider，按后缀名/类型获取）
+        2. 标准图标（QStyle）
+        3. 空图标
 
         Args:
             file_path: 文件路径
@@ -80,18 +79,11 @@ class IconCache:
         try:
             file_info = QFileInfo(file_path)
 
-            # 1. 如果文件存在，直接使用系统图标
-            if file_info.exists():
-                icon = self._icon_provider.icon(file_info)
-                if not icon.isNull():
-                    return icon
-
-            # 2. 文件不存在时，根据类型获取系统图标
+            # 直接根据类型获取图标（不检查文件是否存在）
             if file_info.isDir():
                 icon = self._icon_provider.icon(QFileIconProvider.Folder)
             else:
-                # 对于文件，尝试根据扩展名获取图标
-                # 创建一个临时文件名来获取对应的类型图标
+                # 按文件扩展名获取类型图标
                 icon = self._icon_provider.icon(file_info)
 
             if not icon.isNull():
@@ -99,11 +91,11 @@ class IconCache:
         except Exception:
             pass
 
-        # 3. 降级到标准图标
+        # 降级到标准图标
         if self._style:
             return self._style.standardIcon(QStyle.SP_FileIcon)
 
-        # 4. 最后的降级：空图标
+        # 最后的降级：空图标
         return QIcon()
 
     def clear(self) -> None:

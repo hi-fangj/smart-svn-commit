@@ -176,7 +176,7 @@ def main() -> int:
             subprocess.call([editor, config_path])
         return 0
 
-    # 处理 --file 参数
+    # 处理 --file 参数（异步加载，立即显示 UI）
     if args.file:
         if not UI_AVAILABLE:
             print("错误: PyQt5 未安装，无法使用 GUI", file=sys.stderr)
@@ -184,13 +184,14 @@ def main() -> int:
         # 切换到文件所在目录
         file_path = Path(args.file).resolve()
         os.chdir(file_path.parent)
-        # 创建单文件列表
+        # 传入 None 表示异步加载（UI 立即显示，后台加载）
+        # 但对于单文件模式，直接创建列表即可，不需要异步
         files = [("M", str(file_path.name))]
         result = show_quick_pick(files)
         output_result(result)
         return 0 if not result.get("cancelled") else 1
 
-    # 处理 --dir 参数
+    # 处理 --dir 参数（异步加载，立即显示 UI）
     if args.dir:
         if not UI_AVAILABLE:
             print("错误: PyQt5 未安装，无法使用 GUI", file=sys.stderr)
@@ -201,14 +202,8 @@ def main() -> int:
             print(f"错误: 目录不存在: {args.dir}", file=sys.stderr)
             return 1
         os.chdir(dir_path)
-        # 获取该目录的 SVN 状态
-        files = run_svn_status()
-        # 应用忽略模式
-        config = load_config()
-        ignore_patterns = config.get("ignorePatterns", [])
-        files = apply_ignore_patterns(files, ignore_patterns)
-        # 始终显示 GUI（即使没有变动）
-        result = show_quick_pick(files)
+        # 传入 None 表示异步加载（UI 立即显示，后台加载文件列表）
+        result = show_quick_pick(None)
         output_result(result)
         return 0 if not result.get("cancelled") else 1
 
