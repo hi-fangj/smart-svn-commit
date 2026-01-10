@@ -53,6 +53,29 @@ SetCompressor lzma
 !insertmacro MUI_LANGUAGE "SimpChinese"
 !insertmacro MUI_LANGUAGE "English"
 
+; ============================================================================
+; 函数
+; ============================================================================
+
+; 检查并关闭正在运行的应用
+Function CheckAndCloseApp
+    DetailPrint "检查是否有正在运行的应用实例..."
+
+    ; 使用 taskkill 关闭所有 smart-svn-commit.exe 进程
+    ; /F: 强制终止
+    ; /IM: 指定映像名称
+    nsExec::ExecToLog 'taskkill /F /IM smart-svn-commit.exe'
+    Pop $0
+
+    ; 等待一下确保进程完全关闭
+    Sleep 1000
+FunctionEnd
+
+; 安装初始化函数
+Function .onInit
+    Call CheckAndCloseApp
+FunctionEnd
+
 ; 安装程序节
 Section "主程序" SecMain
 
