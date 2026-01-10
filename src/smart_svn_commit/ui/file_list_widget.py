@@ -61,7 +61,9 @@ class FileListWidget:
         tree_item.setIcon(PATH_COLUMN, icon)
 
         # 使用状态颜色作为字体颜色，文件和目录统一
-        color = STATUS_COLORS.get(status, "#000000")
+        # 纯属性修改（_M）使用对应状态码的颜色
+        color_key = status.lstrip("_")
+        color = STATUS_COLORS.get(color_key, "#000000")
         if color not in self._color_brushes:
             self._color_brushes[color] = QBrush(QColor(color))
         tree_item.setForeground(PATH_COLUMN, self._color_brushes[color])
