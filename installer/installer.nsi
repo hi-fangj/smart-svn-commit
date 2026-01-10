@@ -6,7 +6,7 @@
 !define DESCRIPTION "AI 驱动的 SVN 提交助手"
 !define VERSIONMAJOR 3
 !define VERSIONMINOR 0
-!define VERSIONBUILD 1
+!define VERSIONBUILD 2
 !define HELPURL "https://github.com/hi-fangj/smart-svn-commit" ; 请修改为实际的仓库 URL
 !define UPDATEURL "https://github.com/hi-fangj/smart-svn-commit"
 !define ABOUTURL "https://github.com/hi-fangj/smart-svn-commit"
@@ -162,8 +162,8 @@ SetCompressor lzma
 
 ; 界面设置
 !define MUI_ABORTWARNING
-;!define MUI_ICON "icon.ico" ; 如果有图标文件
-;!define MUI_UNICON "icon.ico" ; 如果有图标文件
+!define MUI_ICON "..\icon.ico"
+!define MUI_UNICON "..\icon.ico"
 
 ; 安装程序页面
 !insertmacro MUI_PAGE_WELCOME
@@ -216,10 +216,7 @@ Section "主程序" SecMain
     ; 假设使用 PyInstaller 打包的单文件
     File /oname=smart-svn-commit.exe "..\dist\smart-svn-commit.exe"
 
-    ; 创建桌面快捷方式（可选）
-    CreateShortCut "$DESKTOP\${APPNAME}.lnk" "$INSTDIR\smart-svn-commit.exe" "" "$INSTDIR\smart-svn-commit.exe" 0
-
-    ; 创建开始菜单快捷方式
+    ; 创建开始菜单快捷方式（不创建桌面快捷方式）
     CreateDirectory "$SMPROGRAMS\${APPNAME}"
     CreateShortCut "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk" "$INSTDIR\smart-svn-commit.exe" "" "$INSTDIR\smart-svn-commit.exe" 0
     CreateShortCut "$SMPROGRAMS\${APPNAME}\卸载.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
@@ -280,8 +277,7 @@ Section "Uninstall"
     Delete $INSTDIR\smart-svn-commit.exe
     Delete $INSTDIR\uninstall.exe
 
-    ; 删除快捷方式
-    Delete "$DESKTOP\${APPNAME}.lnk"
+    ; 删除开始菜单快捷方式（无桌面快捷方式）
     Delete "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk"
     Delete "$SMPROGRAMS\${APPNAME}\卸载.lnk"
     RMDir "$SMPROGRAMS\${APPNAME}"

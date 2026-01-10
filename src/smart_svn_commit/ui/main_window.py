@@ -96,7 +96,7 @@ def show_quick_pick(items: Optional[List[Tuple[str, str]]] = None) -> Dict[str, 
     settings_menu = menubar.addMenu("设置")
 
     # 设置菜单项
-    settings_action = QAction("AI 配置", window)
+    settings_action = QAction("设置", window)
     settings_action.triggered.connect(lambda: SettingsDialog(window).exec_())
     settings_menu.addAction(settings_action)
 

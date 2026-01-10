@@ -17,13 +17,15 @@ from PyQt5.QtWidgets import (
     QTextEdit,
     QVBoxLayout,
     QDialog,
+    QTabWidget,
+    QWidget,
 )
 
 from ..core.config import get_default_config, load_config, save_config
 
 
 class SettingsDialog(QDialog):
-    """设置对话框"""
+    """设置对话框 - 使用标签页组织设置分类"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -38,8 +40,48 @@ class SettingsDialog(QDialog):
         """初始化 UI"""
         layout = QVBoxLayout(self)
 
+        # 创建标签页控件
+        tab_widget = QTabWidget()
+
+        # AI 配置标签页
+        ai_tab = self._create_ai_config_tab()
+        tab_widget.addTab(ai_tab, "AI 配置")
+
+        # 界面设置标签页（占位）
+        ui_tab = self._create_placeholder_tab("界面设置", "未来可添加：主题、字体、界面布局等设置")
+        tab_widget.addTab(ui_tab, "界面设置")
+
+        # 提交设置标签页（占位）
+        commit_tab = self._create_placeholder_tab("提交设置", "未来可添加：提交类型、范围列表、忽略规则等设置")
+        tab_widget.addTab(commit_tab, "提交设置")
+
+        layout.addWidget(tab_widget)
+
+        # 按钮布局
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        restore_btn = QPushButton("恢复默认")
+        restore_btn.clicked.connect(self._restore_defaults)
+        button_layout.addWidget(restore_btn)
+
+        cancel_btn = QPushButton("取消")
+        cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(cancel_btn)
+
+        save_btn = QPushButton("保存")
+        save_btn.clicked.connect(self._save_config)
+        button_layout.addWidget(save_btn)
+
+        layout.addLayout(button_layout)
+
+    def _create_ai_config_tab(self) -> QWidget:
+        """创建 AI 配置标签页"""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+
         # AI 配置组
-        ai_group = QGroupBox("AI 配置")
+        ai_group = QGroupBox("AI API 配置")
         ai_layout = QFormLayout()
 
         # 启用 AI
@@ -86,24 +128,21 @@ class SettingsDialog(QDialog):
         layout.addWidget(prompts_group)
 
         layout.addStretch()
+        return tab
 
-        # 按钮布局
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
+    def _create_placeholder_tab(self, title: str, description: str) -> QWidget:
+        """创建占位标签页（用于未来扩展）"""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
 
-        restore_btn = QPushButton("恢复默认")
-        restore_btn.clicked.connect(self._restore_defaults)
-        button_layout.addWidget(restore_btn)
+        # 占位提示
+        placeholder_label = QLabel(f"{title}\n\n{description}")
+        placeholder_label.setAlignment(Qt.AlignCenter)
+        placeholder_label.setStyleSheet("color: #888888; font-size: 14px;")
+        layout.addWidget(placeholder_label)
 
-        cancel_btn = QPushButton("取消")
-        cancel_btn.clicked.connect(self.reject)
-        button_layout.addWidget(cancel_btn)
-
-        save_btn = QPushButton("保存")
-        save_btn.clicked.connect(self._save_config)
-        button_layout.addWidget(save_btn)
-
-        layout.addLayout(button_layout)
+        layout.addStretch()
+        return tab
 
     def _load_ai_config_to_form(self, ai_config: Dict[str, Any]) -> None:
         """加载 AI 配置到表单"""

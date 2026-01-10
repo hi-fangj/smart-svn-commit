@@ -223,8 +223,22 @@ def _register_single_menu(menu_type: str, command: str) -> bool:
     """
     key_path, command_key_path = _MENU_REGISTRY_PATHS[menu_type]
 
+    # 获取 exe 路径用于图标
+    if getattr(sys, "frozen", False):
+        # PyInstaller 打包环境
+        exe_path = sys.executable
+    else:
+        # 开发环境，使用 Python 解释器作为图标源
+        exe_path = sys.executable
+
     if not set_registry_value(
         winreg.HKEY_CURRENT_USER, key_path, "", "Smart SVN Commit"
+    ):
+        return False
+
+    # 设置图标（使用 exe 内嵌图标）
+    if not set_registry_value(
+        winreg.HKEY_CURRENT_USER, key_path, "Icon", f'"{exe_path}",0'
     ):
         return False
 
