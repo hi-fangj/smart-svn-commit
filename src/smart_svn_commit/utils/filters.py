@@ -4,7 +4,7 @@
 
 import re
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 
 def apply_ignore_patterns(
@@ -25,8 +25,7 @@ def apply_ignore_patterns(
 
     filtered = []
     for status, file_path in files:
-        should_ignore = _should_ignore_file(file_path, ignore_patterns)
-        if not should_ignore:
+        if not _should_ignore_file(file_path, ignore_patterns):
             filtered.append((status, file_path))
 
     return filtered
@@ -67,7 +66,9 @@ def _should_ignore_file(file_path: str, ignore_patterns: List[str]) -> bool:
     return False
 
 
-def wildcard_filter(pattern: str, items: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+def wildcard_filter(
+    pattern: str, items: List[Tuple[str, str]]
+) -> List[Tuple[str, str]]:
     """
     使用通配符过滤文件列表
 
@@ -98,7 +99,9 @@ def wildcard_filter(pattern: str, items: List[Tuple[str, str]]) -> List[Tuple[st
         return []
 
 
-def text_filter(search_text: str, items: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+def text_filter(
+    search_text: str, items: List[Tuple[str, str]]
+) -> List[Tuple[str, str]]:
     """
     使用普通文本过滤（大小写不敏感）
 

@@ -2,7 +2,7 @@
 基于关键词的提交消息生成器（降级方案）
 """
 
-from typing import List, Dict
+from typing import Dict, List
 
 
 def generate_commit_message_by_keywords(files: List[str]) -> str:
@@ -52,26 +52,22 @@ def generate_commit_message_by_keywords(files: List[str]) -> str:
         path_lower = file_path.lower()
 
         # 检测类型
-        detected_type = None
         for type_name, patterns in path_type_patterns.items():
             if any(p in path_lower for p in patterns):
-                detected_type = type_name
-                break
-        if detected_type:
-            type_counts[detected_type] = type_counts.get(detected_type, 0) + 1
+                type_counts[type_name] = type_counts.get(type_name, 0) + 1
 
         # 检测范围
-        detected_scope = None
         for scope_name, patterns in path_scope_patterns.items():
             if any(p in path_lower for p in patterns):
-                detected_scope = scope_name
-                break
-        if detected_scope:
-            scope_counts[detected_scope] = scope_counts.get(detected_scope, 0) + 1
+                scope_counts[scope_name] = scope_counts.get(scope_name, 0) + 1
 
     # 选择最常见的类型和范围
-    commit_type = max(type_counts, key=lambda k: type_counts[k]) if type_counts else "chore"
-    commit_scope = max(scope_counts, key=lambda k: scope_counts[k]) if scope_counts else ""
+    commit_type = (
+        max(type_counts, key=lambda k: type_counts[k]) if type_counts else "chore"
+    )
+    commit_scope = (
+        max(scope_counts, key=lambda k: scope_counts[k]) if scope_counts else ""
+    )
 
     # 构建提交消息
     if commit_scope:

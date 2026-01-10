@@ -4,7 +4,7 @@ Windows 注册表操作模块
 
 import sys
 import winreg
-from typing import List, Optional, cast, Tuple, Any
+from typing import Optional
 
 
 def get_registry_value(
@@ -24,9 +24,8 @@ def get_registry_value(
     """
     try:
         with winreg.OpenKey(hive, key_path, 0, winreg.KEY_READ) as key:
-            value: Any
             value, _ = winreg.QueryValueEx(key, value_name)
-            return cast(str, value)
+            return value
     except OSError:
         return default
 

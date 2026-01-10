@@ -2,10 +2,10 @@
 配置管理模块
 """
 
-import sys
 import json
+import sys
 from pathlib import Path
-from typing import Dict, Optional, Any, cast
+from typing import Any, Dict, Optional
 
 
 def get_config_path() -> Path:
@@ -16,17 +16,14 @@ def get_config_path() -> Path:
     1. 当前工作目录: .smart-svn-commit.json
     2. 用户配置目录: ~/.config/smart-svn-commit/config.json (Linux/Mac)
     3. 用户配置目录: %APPDATA%/smart-svn-commit/config.json (Windows)
-    4. 包内默认配置
 
     Returns:
-        配置文件的完整路径（用户配置目录）
+        配置文件的完整路径
     """
-    # 首先检查当前工作目录
     cwd_config = Path.cwd() / ".smart-svn-commit.json"
     if cwd_config.exists():
         return cwd_config
 
-    # 用户配置目录
     if sys.platform == "win32":
         config_dir = Path.home() / "AppData" / "Roaming" / "smart-svn-commit"
     else:
@@ -57,7 +54,17 @@ def get_default_config() -> Dict[str, Any]:
         "commitMessage": {
             "format": "conventional",
             "language": "zh",
-            "types": ["feat", "fix", "docs", "style", "refactor", "perf", "test", "chore", "build"],
+            "types": [
+                "feat",
+                "fix",
+                "docs",
+                "style",
+                "refactor",
+                "perf",
+                "test",
+                "chore",
+                "build",
+            ],
             "scopes": [
                 "guild",
                 "battle",
@@ -103,25 +110,22 @@ def load_config() -> Dict[str, Any]:
     Returns:
         配置字典，如果不存在则返回默认配置
     """
-    # 首先尝试当前工作目录配置
     cwd_config = Path.cwd() / ".smart-svn-commit.json"
     if cwd_config.exists():
         try:
             with open(cwd_config, "r", encoding="utf-8") as f:
-                return cast(Dict[str, Any], json.load(f))
+                return json.load(f)
         except (json.JSONDecodeError, IOError) as e:
             print(f"警告: 无法读取配置文件 {cwd_config}: {e}", file=sys.stderr)
 
-    # 尝试用户配置目录
     config_path = get_config_path()
     if config_path.exists():
         try:
             with open(config_path, "r", encoding="utf-8") as f:
-                return cast(Dict[str, Any], json.load(f))
+                return json.load(f)
         except (json.JSONDecodeError, IOError) as e:
             print(f"警告: 无法读取配置文件 {config_path}: {e}", file=sys.stderr)
 
-    # 返回默认配置
     return get_default_config()
 
 
@@ -157,6 +161,5 @@ def init_config() -> Path:
         创建的配置文件路径
     """
     config_path = get_config_path()
-    default_config = get_default_config()
-    save_config(default_config, config_path)
+    save_config(get_default_config(), config_path)
     return config_path

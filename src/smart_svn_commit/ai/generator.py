@@ -3,7 +3,7 @@ AI 提交消息生成器
 """
 
 import sys
-from typing import List, Dict, Any, Optional, cast
+from typing import Any, Dict, List, Optional
 
 # OpenAI SDK 导入
 try:
@@ -70,8 +70,8 @@ def generate_commit_message_with_ai(
 
 格式要求：
 - 格式：<类型>(<范围>): <简短描述>
-- 类型（type）：feat（新功能）、fix（修复bug）、docs（文档）、style（格式）、refactor（重构）、perf（性能）、test（测试）、chore（构建/工具）
-- 范围（scope）：根据文件路径和变更内容判断，如 ui、battle、player、network、config 等
+- 类型：feat（新功能）、fix（修复bug）、docs（文档）、style（格式）、refactor（重构）、perf（性能）、test（测试）、chore（构建/工具）
+- 范围：根据文件路径和变更内容判断，如 ui、battle、player、network、config 等
 - 描述：简洁明了地说明变更内容，使用中文
 
 请只返回提交消息本身，不要包含任何解释或额外内容。"""
@@ -101,19 +101,16 @@ def generate_commit_message_with_ai(
         )
 
         if response.choices and response.choices[0].message.content:
-            content = cast(str, response.choices[0].message.content)
+            content = response.choices[0].message.content
             message = content.strip("\"'").strip()
             if message:
                 return message
 
     except (ConnectionError, TimeoutError) as e:
-        # 网络连接相关错误
         print(f"API 网络错误: {e}", file=sys.stderr)
     except OSError as e:
-        # 系统/IO 相关错误
         print(f"API 系统错误: {e}", file=sys.stderr)
     except Exception as e:
-        # 其他未预期的错误
         error_msg = str(e)
         if "404" in error_msg or "Not Found" in error_msg:
             print(f"API 端点错误 (404): 请检查 base_url 配置，当前值: {base_url}", file=sys.stderr)

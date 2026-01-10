@@ -2,9 +2,9 @@
 文件系统操作辅助类
 """
 
-import sys
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -13,14 +13,7 @@ class FileSystemHelper:
 
     @staticmethod
     def delete_file(file_path: str) -> bool:
-        """直接删除文件系统中的文件
-
-        Args:
-            file_path: 文件路径
-
-        Returns:
-            是否删除成功
-        """
+        """直接删除文件系统中的文件"""
         try:
             path_obj = Path(file_path)
             if path_obj.is_file():
@@ -35,11 +28,7 @@ class FileSystemHelper:
 
     @staticmethod
     def open_file(file_path: str) -> None:
-        """使用系统默认程序打开文件
-
-        Args:
-            file_path: 文件路径
-        """
+        """使用系统默认程序打开文件"""
         try:
             if sys.platform == "win32":
                 os.startfile(file_path)
@@ -52,11 +41,7 @@ class FileSystemHelper:
 
     @staticmethod
     def open_containing_folder(file_path: str) -> None:
-        """打开文件所在目录并选中文件
-
-        Args:
-            file_path: 文件路径
-        """
+        """打开文件所在目录并选中文件"""
         try:
             folder_path = str(Path(file_path).parent)
             if sys.platform == "win32":

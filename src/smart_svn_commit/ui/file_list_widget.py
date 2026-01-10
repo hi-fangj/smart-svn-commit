@@ -2,37 +2,22 @@
 文件列表控件模块
 """
 
-import re
 import sys
-from typing import List, Tuple, Set, Pattern, Optional, cast
+from typing import List, Optional, Set, Tuple
 
-from PyQt5.QtWidgets import QTreeWidget, QTreeWidgetItem
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QBrush, QColor, QGuiApplication
+from PyQt5.QtWidgets import QTreeWidget, QTreeWidgetItem
+
+from smart_svn_commit.utils.regex_cache import get_global_cache
+from smart_svn_commit.core.parser import extract_path_from_display_text
 
 from .constants import (
+    CANDIDATE_BG_COLOR,
     CHECKBOX_COLUMN,
     PATH_COLUMN,
     STATUS_COLORS,
-    STATUS_PREFIX_SEPARATOR,
-    CANDIDATE_BG_COLOR,
 )
-from smart_svn_commit.utils.regex_cache import _regex_cache
-
-
-def _extract_path_from_display_text(display_text: str) -> Optional[str]:
-    """
-    从显示文本中提取文件路径。
-
-    Args:
-        display_text: 显示文本，格式为 "[M] path" 或类似
-
-    Returns:
-        提取的文件路径，如果格式不匹配则返回 None
-    """
-    if STATUS_PREFIX_SEPARATOR in display_text:
-        return display_text.split(STATUS_PREFIX_SEPARATOR, 1)[1]
-    return None
 
 
 class FileListWidget:
@@ -44,13 +29,16 @@ class FileListWidget:
 
         self.tree = QTreeWidget(parent)
         self._setup_tree()
+        self._regex_cache = get_global_cache()
 
         # 缓存颜色画刷，避免重复创建
-        self._color_brushes = {color: QBrush(QColor(color)) for color in STATUS_COLORS.values()}
+        self._color_brushes = {
+            color: QBrush(QColor(color)) for color in STATUS_COLORS.values()
+        }
 
         # 备选范围相关
-        self.candidate_indices: Set[int] = set()  # 当前备选的索引集合（Shift 范围选择）
-        self.shift_start_index: int = -1  # Shift 路径点击的起点索引
+        self.candidate_indices: Set[int] = set()
+        self.shift_start_index: int = -1
 
         # 缓存备选背景色，避免重复创建
         self._candidate_bg = QBrush(QColor(CANDIDATE_BG_COLOR))
@@ -84,7 +72,7 @@ class FileListWidget:
         for i in range(self.tree.topLevelItemCount()):
             item = self.tree.topLevelItem(i)
             if item.checkState(CHECKBOX_COLUMN) == Qt.Checked:
-                path = _extract_path_from_display_text(item.text(PATH_COLUMN))
+                path = extract_path_from_display_text(item.text(PATH_COLUMN))
                 if path:
                     checked_paths.append(path)
         return checked_paths
@@ -111,12 +99,16 @@ class FileListWidget:
         for i in range(self.tree.topLevelItemCount()):
             item = self.tree.topLevelItem(i)
             new_state = (
-                Qt.Unchecked if item.checkState(CHECKBOX_COLUMN) == Qt.Checked else Qt.Checked
+                Qt.Unchecked
+                if item.checkState(CHECKBOX_COLUMN) == Qt.Checked
+                else Qt.Checked
             )
             item.setCheckState(CHECKBOX_COLUMN, new_state)
         self.tree.blockSignals(False)
 
-    def filter_by_text(self, search_text: str, all_items_data: List[Tuple[str, str]]) -> None:
+    def filter_by_text(
+        self, search_text: str, all_items_data: List[Tuple[str, str]]
+    ) -> None:
         """
         根据搜索文本过滤（支持多种模式）
 
@@ -163,9 +155,11 @@ class FileListWidget:
         else:
             return self._text_filter(search_text, items)
 
-    def _wildcard_filter(self, pattern: str, items: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+    def _wildcard_filter(
+        self, pattern: str, items: List[Tuple[str, str]]
+    ) -> List[Tuple[str, str]]:
         """
-        使用通配符过滤
+        使用通配符过滤（委托给 utils.filters 模块）
 
         支持的通配符模式：
         - *.cs : 匹配所有 .cs 文件
@@ -180,25 +174,13 @@ class FileListWidget:
         Returns:
             过滤后的项目列表
         """
-        # 将通配符模式转换为正则表达式
-        # 转义特殊字符，但保留 * 和 ?
-        regex_pattern = re.escape(pattern)
-        # 将 \* 替换为 .* (匹配任意字符)
-        regex_pattern = regex_pattern.replace(r"\*", ".*")
-        # 将 \? 替换为 . (匹配单个字符)
-        regex_pattern = regex_pattern.replace(r"\?", ".")
-        # 添加行首行尾锚定，确保完整匹配
-        regex_pattern = f"^{regex_pattern}$"
+        from smart_svn_commit.utils.filters import wildcard_filter
 
-        try:
-            # 使用缓存获取编译后的正则表达式
-            regex = _regex_cache.get(regex_pattern)
-            return [(status, path) for status, path in items if regex.search(path)]
-        except re.error:
-            # 正则表达式无效，回退到普通文本搜索
-            return self._text_filter(pattern, items)
+        return wildcard_filter(pattern, items)
 
-    def _text_filter(self, search_text: str, items: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+    def _text_filter(
+        self, search_text: str, items: List[Tuple[str, str]]
+    ) -> List[Tuple[str, str]]:
         """
         使用普通文本过滤（大小写不敏感）
 
@@ -209,8 +191,9 @@ class FileListWidget:
         Returns:
             过滤后的项目列表
         """
-        search_lower = search_text.lower()
-        return [(status, path) for status, path in items if search_lower in path.lower()]
+        from smart_svn_commit.utils.filters import text_filter
+
+        return text_filter(search_text, items)
 
     def count(self) -> int:
         """返回项数"""
@@ -233,8 +216,12 @@ class FileListWidget:
         for i in range(self.tree.topLevelItemCount()):
             item = self.tree.topLevelItem(i)
             display_text = item.text(PATH_COLUMN)
-            status = display_text[1] if len(display_text) > 1 and display_text[0] == "[" else ""
-            path = _extract_path_from_display_text(display_text)
+            status = (
+                display_text[1]
+                if len(display_text) > 1 and display_text[0] == "["
+                else ""
+            )
+            path = extract_path_from_display_text(display_text)
             check_state = item.checkState(CHECKBOX_COLUMN)
             items_data.append((status, path, check_state))
 
@@ -274,7 +261,11 @@ class FileListWidget:
         for i in range(self.tree.topLevelItemCount()):
             item = self.tree.topLevelItem(i)
             if item:
-                bg = self._candidate_bg if i in self.candidate_indices else self._default_bg
+                bg = (
+                    self._candidate_bg
+                    if i in self.candidate_indices
+                    else self._default_bg
+                )
                 item.setBackground(PATH_COLUMN, bg)
 
     def clear_candidates(self) -> None:
@@ -344,7 +335,10 @@ class FileListWidget:
         else:
             # 第二次 Shift 点击：创建备选范围
             if self.shift_start_index != index:
-                start, end = min(self.shift_start_index, index), max(self.shift_start_index, index)
+                start, end = (
+                    min(self.shift_start_index, index),
+                    max(self.shift_start_index, index),
+                )
                 self.candidate_indices = set(range(start, end + 1))
                 self.update_candidate_highlight()
             self.shift_start_index = -1

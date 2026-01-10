@@ -8,13 +8,13 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Tuple, Dict, Any
+from typing import Any, Dict, List, Tuple
 
-from smart_svn_commit.core.parser import parse_svn_status
-from smart_svn_commit.core.commit import execute_svn_commit, run_svn_status
-from smart_svn_commit.core.config import load_config, init_config, get_config_path
-from smart_svn_commit.utils.filters import apply_ignore_patterns
 from smart_svn_commit.ai.factory import generate_commit_message
+from smart_svn_commit.core.commit import run_svn_status
+from smart_svn_commit.core.config import get_config_path, init_config, load_config
+from smart_svn_commit.core.parser import parse_svn_status
+from smart_svn_commit.utils.filters import apply_ignore_patterns
 
 # 尝试导入 UI 模块
 try:
@@ -29,26 +29,21 @@ WINDOWS_AVAILABLE = sys.platform == "win32"
 if WINDOWS_AVAILABLE:
     try:
         from smart_svn_commit.windows import (
+            is_context_menu_registered,
             register_context_menu,
             unregister_context_menu,
-            is_context_menu_registered,
         )
     except ImportError:
         WINDOWS_AVAILABLE = False
 
 
 def output_result(result: Dict[str, Any]) -> None:
-    """
-    输出 JSON 格式结果
-
-    Args:
-        result: 包含 selected、commitMessage、cancelled 的字典
-    """
+    """输出 JSON 格式结果"""
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
 def main() -> int:
-    """主 CLI 入口"""
+    """主 CLI 入口点"""
     parser = argparse.ArgumentParser(
         description="Smart SVN Commit - AI 驱动的 SVN 提交助手",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -80,7 +75,9 @@ def main() -> int:
 
     parser.add_argument("--files", type=str, help="逗号分隔的文件列表")
 
-    parser.add_argument("--status", action="store_true", help="从 stdin 读取 SVN 状态输出")
+    parser.add_argument(
+        "--status", action="store_true", help="从 stdin 读取 SVN 状态输出"
+    )
 
     parser.add_argument(
         "--skip-ui", action="store_true", help="跳过 GUI 界面，直接使用提供的文件列表"
@@ -90,7 +87,9 @@ def main() -> int:
 
     parser.add_argument("--no-ignore", action="store_true", help="禁用所有忽略模式")
 
-    parser.add_argument("--config", type=str, choices=["init", "edit", "show"], help="配置管理操作")
+    parser.add_argument(
+        "--config", type=str, choices=["init", "edit", "show"], help="配置管理操作"
+    )
 
     parser.add_argument(
         "--context-menu",
@@ -111,23 +110,15 @@ def main() -> int:
             print("错误: 右键菜单功能仅支持 Windows 平台", file=sys.stderr)
             return 1
 
-        if args.context_menu == "install":
-            if register_context_menu():
-                return 0
-            else:
-                return 1
-        elif args.context_menu == "uninstall":
-            if unregister_context_menu():
-                return 0
-            else:
-                return 1
-        elif args.context_menu == "status":
-            if is_context_menu_registered():
-                print("右键菜单已注册")
-                return 0
-            else:
-                print("右键菜单未注册")
-                return 1
+        result = {
+            "install": register_context_menu,
+            "uninstall": unregister_context_menu,
+            "status": is_context_menu_registered,
+        }[args.context_menu]()
+
+        if args.context_menu == "status":
+            print("右键菜单已注册" if result else "右键菜单未注册")
+        return 0 if result else 1
 
     # 处理配置命令
     if args.config == "init":
@@ -135,18 +126,16 @@ def main() -> int:
         print(f"配置文件已创建: {config_path}")
         print("请编辑配置文件，设置 AI API 密钥等信息。")
         return 0
-    elif args.config == "show":
+
+    if args.config == "show":
         config = load_config()
         print(json.dumps(config, ensure_ascii=False, indent=2))
         return 0
-    elif args.config == "edit":
-        import os
-        import subprocess
 
+    if args.config == "edit":
         config_path = get_config_path()
         if not config_path.exists():
             config_path = init_config()
-        # 使用系统默认编辑器打开
         if sys.platform == "win32":
             os.startfile(config_path)
         else:
@@ -219,30 +208,18 @@ def main() -> int:
 
 
 def _collect_files(args) -> List[Tuple[str, str]]:
-    """
-    收集文件列表（带状态）
-
-    Args:
-        args: 命令行参数
-
-    Returns:
-        (状态, 文件路径) 元组列表
-    """
+    """收集文件列表（带状态）"""
     files: List[Tuple[str, str]] = []
 
     if args.files:
-        # 直接指定的文件，默认为修改状态
         file_list = [f.strip() for f in args.files.split(",") if f.strip()]
         files.extend(("M", f) for f in file_list)
 
-    if args.status:
-        # 从 stdin 读取 SVN 状态
-        if not sys.stdin.isatty():
-            status_output = sys.stdin.read()
-            if status_output.strip():
-                files.extend(parse_svn_status(status_output))
+    if args.status and not sys.stdin.isatty():
+        status_output = sys.stdin.read()
+        if status_output.strip():
+            files.extend(parse_svn_status(status_output))
 
-    # 只在没有提供任何输入时才自动执行 svn status
     if not files and not args.files and not args.status:
         files = run_svn_status()
 
@@ -250,25 +227,13 @@ def _collect_files(args) -> List[Tuple[str, str]]:
 
 
 def _apply_ignore_filters(files: List[Tuple[str, str]], args) -> List[Tuple[str, str]]:
-    """
-    应用忽略模式过滤文件列表
-
-    Args:
-        files: (状态, 文件路径) 元组列表
-        args: 命令行参数
-
-    Returns:
-        过滤后的文件列表
-    """
-    # 加载配置
+    """应用忽略模式过滤文件列表"""
     config = load_config()
     ignore_patterns = config.get("ignorePatterns", [])
 
-    # 应用命令行覆盖
     if args.ignore:
         ignore_patterns = [p.strip() for p in args.ignore.split(",") if p.strip()]
 
-    # 应用忽略模式
     if not args.no_ignore and ignore_patterns:
         files = apply_ignore_patterns(files, ignore_patterns)
 
@@ -309,7 +274,12 @@ def _get_selected_files(files: List[Tuple[str, str]], args) -> Dict[str, Any]:
                 ),
                 file=sys.stderr,
             )
-            return {"selected": [], "commitMessage": "", "cancelled": True, "commitResult": None}
+            return {
+                "selected": [],
+                "commitMessage": "",
+                "cancelled": True,
+                "commitResult": None,
+            }
         return show_quick_pick(files)
 
 

@@ -28,32 +28,17 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QEvent, QObject
 
-from .constants import CHECKBOX_COLUMN, PATH_COLUMN, STATUS_PREFIX_SEPARATOR
+from .constants import CHECKBOX_COLUMN, PATH_COLUMN
 from .styles import UIStyles
 from .file_list_widget import FileListWidget
 from .context_menu import ContextMenuBuilder
-from .commit_message import get_file_diff, generate_commit_message_with_ai
-from ..core.parser import parse_svn_status
+from .commit_message import generate_commit_message
+from ..core.parser import parse_svn_status, extract_path_from_display_text
 from ..core.commit import execute_svn_commit
 from ..core.config import load_config
 from ..core.svn_executor import SVNCommandExecutor
 from ..core.fs_helper import FileSystemHelper
 from ..utils.filters import apply_ignore_patterns
-
-
-def _extract_path_from_display_text(display_text: str) -> Optional[str]:
-    """
-    从显示文本中提取文件路径。
-
-    Args:
-        display_text: 显示文本，格式为 "[M] path" 或类似
-
-    Returns:
-        提取的文件路径，如果格式不匹配则返回 None
-    """
-    if STATUS_PREFIX_SEPARATOR in display_text:
-        return display_text.split(STATUS_PREFIX_SEPARATOR, 1)[1]
-    return None
 
 
 def show_quick_pick(items: List[Tuple[str, str]]) -> Dict[str, Any]:
@@ -289,27 +274,20 @@ def show_quick_pick(items: List[Tuple[str, str]]) -> Dict[str, Any]:
         if selected_files:
             # 显示加载提示
             commit_message_input.setPlainText("正在调用 AI 生成提交消息...\n\n请稍候...")
-            generate_msg_btn.setEnabled(False)  # 禁用按钮防止重复点击
+            generate_msg_btn.setEnabled(False)
 
             # 强制刷新 UI
             QApplication.processEvents()
 
-            # 收集每个文件的 diff 内容
-            files_with_diff = []
-            for file_path in selected_files:
-                diff_content = get_file_diff(file_path)
-                files_with_diff.append({"path": file_path, "diff": diff_content})
-
-            # 调用 API 生成提交消息
-            config = load_config()
-            commit_message = generate_commit_message_with_ai(files_with_diff, config)
+            # 调用统一的生成函数
+            commit_message = generate_commit_message(selected_files)
 
             # 调试：显示生成的消息
             print(f"[DEBUG] 生成的提交消息: '{commit_message}'", file=sys.stderr)
 
             # 将生成的消息填入输入框
             commit_message_input.setPlainText(commit_message)
-            generate_msg_btn.setEnabled(True)  # 重新启用按钮
+            generate_msg_btn.setEnabled(True)
         else:
             commit_message_input.setPlainText("chore: 提交变更")
 
@@ -347,8 +325,10 @@ def show_quick_pick(items: List[Tuple[str, str]]) -> Dict[str, Any]:
             for status, path in original_items:
                 file_list.add_item(status, path)
                 if path in checked_paths:
-                    item = file_list.tree.topLevelItem(file_list.tree.topLevelItemCount() - 1)
-                    item.setCheckState(CHECKBOX_COLUMN, Qt.Checked)
+                    last_item = file_list.tree.topLevelItem(
+                        file_list.tree.topLevelItemCount() - 1
+                    )
+                    last_item.setCheckState(CHECKBOX_COLUMN, Qt.Checked)
 
     def refresh_file_list():
         """刷新文件列表（重新运行 svn status）"""
@@ -384,8 +364,10 @@ def show_quick_pick(items: List[Tuple[str, str]]) -> Dict[str, Any]:
                     file_list.add_item(status, path)
                     # 恢复选中状态（如果文件仍在列表中）
                     if path in checked_paths:
-                        item = file_list.tree.topLevelItem(file_list.tree.topLevelItemCount() - 1)
-                        item.setCheckState(CHECKBOX_COLUMN, Qt.Checked)
+                        last_item = file_list.tree.topLevelItem(
+                            file_list.tree.topLevelItemCount() - 1
+                        )
+                        last_item.setCheckState(CHECKBOX_COLUMN, Qt.Checked)
 
                 # 更新状态栏
                 status_label.setText(f"共 {len(new_files)} 个文件")
@@ -514,7 +496,7 @@ def show_quick_pick(items: List[Tuple[str, str]]) -> Dict[str, Any]:
             """处理路径列点击"""
             if event.button() == Qt.RightButton:
                 # 右键显示菜单
-                file_path = _extract_path_from_display_text(item.text(PATH_COLUMN))
+                file_path = extract_path_from_display_text(item.text(PATH_COLUMN))
                 if file_path:
                     status = self._extract_status(item.text(PATH_COLUMN))
                     menu = self._menu_builder.build_menu(file_path, status, self.tree)
@@ -534,7 +516,7 @@ def show_quick_pick(items: List[Tuple[str, str]]) -> Dict[str, Any]:
             if item:
                 column = self.tree.columnAt(event.pos().x())
                 if column == PATH_COLUMN:
-                    file_path = _extract_path_from_display_text(item.text(PATH_COLUMN))
+                    file_path = extract_path_from_display_text(item.text(PATH_COLUMN))
                     if file_path:
                         self._svn_executor.diff(file_path)
             return False

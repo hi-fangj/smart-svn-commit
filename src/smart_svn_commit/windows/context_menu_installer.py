@@ -11,15 +11,16 @@ if sys.platform == "win32":
     import winreg
 
 from .registry import (
-    set_registry_value,
     delete_registry_key,
     registry_key_exists,
+    set_registry_value,
 )
-
 
 # 右键菜单注册表路径
 # 文件夹背景右键菜单
-CONTEXT_MENU_BG_KEY_PATH = r"Software\Classes\Directory\Background\shell\smart-svn-commit"
+CONTEXT_MENU_BG_KEY_PATH = (
+    r"Software\Classes\Directory\Background\shell\smart-svn-commit"
+)
 CONTEXT_MENU_BG_COMMAND_KEY_PATH = f"{CONTEXT_MENU_BG_KEY_PATH}\\command"
 # 文件夹右键菜单
 CONTEXT_MENU_DIR_KEY_PATH = r"Software\Classes\Directory\shell\smart-svn-commit"
@@ -39,8 +40,7 @@ def is_svn_working_copy(path: str) -> bool:
     Returns:
         是否是 SVN 工作副本
     """
-    svn_dir = Path(path) / ".svn"
-    return svn_dir.is_dir()
+    return (Path(path) / ".svn").is_dir()
 
 
 def handle_context_menu(path: str) -> None:
@@ -63,11 +63,11 @@ def handle_context_menu(path: str) -> None:
             src_dir = install_dir / "src"
             sys.path.insert(0, str(src_dir))
 
-        from smart_svn_commit.ui.main_window import show_quick_pick
-        from smart_svn_commit.core.parser import parse_svn_status
         from smart_svn_commit.core.commit import run_svn_status
-        from smart_svn_commit.utils.filters import apply_ignore_patterns
         from smart_svn_commit.core.config import load_config
+        from smart_svn_commit.core.parser import parse_svn_status
+        from smart_svn_commit.ui.main_window import show_quick_pick
+        from smart_svn_commit.utils.filters import apply_ignore_patterns
 
         # 切换到目标目录
         os.chdir(path)
@@ -102,26 +102,20 @@ def get_install_command() -> str:
         注册表命令字符串
     """
     # 检测是否为 PyInstaller 打包的 exe
-    if getattr(sys, 'frozen', False):
-        # PyInstaller 打包环境：直接调用 exe
+    if getattr(sys, "frozen", False):
         exe_path = sys.executable
-        # 注册表中的 %v 或 %1 会被替换为用户右键点击的目录路径
-        command = f'"{exe_path}" --dir "%v"'
-    else:
-        # 开发环境：使用 Python 解释器
-        python_exe = sys.executable
-        # 获取安装目录
-        install_dir = Path(__file__).parent.parent.parent.parent.resolve()
-        install_dir_str = str(install_dir).replace('\\', '\\\\')
-        # 使用 -c 参数执行 Python 代码
-        python_code = (
-            f"import sys; sys.path.insert(0, '{install_dir_str}'); "
-            f"from smart_svn_commit.windows.context_menu_installer import handle_context_menu; "
-            f"handle_context_menu('%v')"
-        )
-        command = f'"{python_exe}" -c "{python_code}"'
+        return f'"{exe_path}" --dir "%v"'
 
-    return command
+    # 开发环境：使用 Python 解释器
+    python_exe = sys.executable
+    install_dir = Path(__file__).parent.parent.parent.parent.resolve()
+    install_dir_str = str(install_dir).replace("\\", "\\\\")
+    python_code = (
+        f"import sys; sys.path.insert(0, '{install_dir_str}'); "
+        f"from smart_svn_commit.windows.context_menu_installer import handle_context_menu; "
+        f"handle_context_menu('%v')"
+    )
+    return f'"{python_exe}" -c "{python_code}"'
 
 
 def register_context_menu() -> bool:
@@ -136,33 +130,21 @@ def register_context_menu() -> bool:
 
         # 注册文件夹背景右键菜单
         if not set_registry_value(
-            winreg.HKEY_CURRENT_USER,
-            CONTEXT_MENU_BG_KEY_PATH,
-            "",
-            "Smart SVN Commit"
+            winreg.HKEY_CURRENT_USER, CONTEXT_MENU_BG_KEY_PATH, "", "Smart SVN Commit"
         ):
             return False
         if not set_registry_value(
-            winreg.HKEY_CURRENT_USER,
-            CONTEXT_MENU_BG_COMMAND_KEY_PATH,
-            "",
-            command
+            winreg.HKEY_CURRENT_USER, CONTEXT_MENU_BG_COMMAND_KEY_PATH, "", command
         ):
             return False
 
         # 注册文件夹右键菜单
         if not set_registry_value(
-            winreg.HKEY_CURRENT_USER,
-            CONTEXT_MENU_DIR_KEY_PATH,
-            "",
-            "Smart SVN Commit"
+            winreg.HKEY_CURRENT_USER, CONTEXT_MENU_DIR_KEY_PATH, "", "Smart SVN Commit"
         ):
             return False
         if not set_registry_value(
-            winreg.HKEY_CURRENT_USER,
-            CONTEXT_MENU_DIR_COMMAND_KEY_PATH,
-            "",
-            command
+            winreg.HKEY_CURRENT_USER, CONTEXT_MENU_DIR_COMMAND_KEY_PATH, "", command
         ):
             return False
 
@@ -205,10 +187,9 @@ def is_context_menu_registered() -> bool:
     Returns:
         是否已注册（任一路径存在即返回 True）
     """
-    return (
-        registry_key_exists(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_BG_KEY_PATH) or
-        registry_key_exists(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_DIR_KEY_PATH)
-    )
+    return registry_key_exists(
+        winreg.HKEY_CURRENT_USER, CONTEXT_MENU_BG_KEY_PATH
+    ) or registry_key_exists(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_DIR_KEY_PATH)
 
 
 # 主入口（用于注册表命令调用）

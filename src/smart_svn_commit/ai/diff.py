@@ -2,7 +2,6 @@
 获取文件差异内容
 """
 
-import sys
 import subprocess
 from typing import List
 

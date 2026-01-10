@@ -3,10 +3,11 @@
 """
 
 from typing import List
-from .diff import get_multiple_files_diff
-from .generator import generate_commit_message_with_ai
-from .fallback import generate_commit_message_by_keywords
+
 from ..core.config import load_config
+from .diff import get_multiple_files_diff
+from .fallback import generate_commit_message_by_keywords
+from .generator import generate_commit_message_with_ai
 
 
 def generate_commit_message(files: List[str]) -> str:
@@ -24,8 +25,6 @@ def generate_commit_message(files: List[str]) -> str:
         return "chore: 提交变更"
 
     config = load_config()
-
-    # 收集 diff 内容
     files_with_diff = get_multiple_files_diff(files)
 
     # 尝试使用 AI API 生成
