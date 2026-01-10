@@ -3,6 +3,7 @@ Windows 右键菜单安装模块
 """
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -16,6 +17,9 @@ from .registry import (
     set_registry_value,
 )
 
+# COM 扩展模块路径
+CONTEXT_MENU_EXTENSION_MODULE = "smart_svn_commit.windows.context_menu_extension"
+
 # 右键菜单注册表路径
 # 文件夹背景右键菜单
 CONTEXT_MENU_BG_KEY_PATH = (
@@ -25,6 +29,9 @@ CONTEXT_MENU_BG_COMMAND_KEY_PATH = f"{CONTEXT_MENU_BG_KEY_PATH}\\command"
 # 文件夹右键菜单
 CONTEXT_MENU_DIR_KEY_PATH = r"Software\Classes\Directory\shell\smart-svn-commit"
 CONTEXT_MENU_DIR_COMMAND_KEY_PATH = f"{CONTEXT_MENU_DIR_KEY_PATH}\\command"
+# 文件右键菜单
+CONTEXT_MENU_FILE_KEY_PATH = r"Software\Classes\*\shell\smart-svn-commit"
+CONTEXT_MENU_FILE_COMMAND_KEY_PATH = f"{CONTEXT_MENU_FILE_KEY_PATH}\\command"
 # 兼容旧版本的常量
 CONTEXT_MENU_KEY_PATH = CONTEXT_MENU_BG_KEY_PATH
 CONTEXT_MENU_COMMAND_KEY_PATH = CONTEXT_MENU_BG_COMMAND_KEY_PATH
@@ -94,9 +101,51 @@ def handle_context_menu(path: str) -> None:
         sys.exit(1)
 
 
-def get_install_command() -> str:
+def handle_file_context_menu(file_path: str) -> None:
+    """
+    处理文件右键菜单调用（从注册表命令调用）
+
+    Args:
+        file_path: 用户右键点击的文件路径
+    """
+    # 检查文件所在目录是否是 SVN 工作副本
+    file = Path(file_path)
+    parent_dir = file.parent
+
+    if not is_svn_working_copy(str(parent_dir)):
+        # 不是 SVN 工作副本，静默退出
+        sys.exit(0)
+
+    # 是 SVN 工作副本，启动 GUI 并显示该文件
+    try:
+        # 获取当前脚本所在目录的安装路径
+        install_dir = Path(__file__).parent.parent.parent.parent
+        if (install_dir / "smart_svn_commit").exists():
+            src_dir = install_dir / "src"
+            sys.path.insert(0, str(src_dir))
+
+        from smart_svn_commit.ui.main_window import show_quick_pick
+
+        # 切换到文件所在目录
+        os.chdir(parent_dir)
+
+        # 创建单文件列表
+        files = [("M", file.name)]
+
+        # 显示 GUI
+        show_quick_pick(files)
+
+    except Exception as e:
+        print(f"启动 GUI 失败: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def get_install_command(menu_type: str = "dir") -> str:
     """
     获取右键菜单安装命令
+
+    Args:
+        menu_type: 菜单类型，"dir" 表示目录，"file" 表示文件
 
     Returns:
         注册表命令字符串
@@ -104,29 +153,42 @@ def get_install_command() -> str:
     # 检测是否为 PyInstaller 打包的 exe
     if getattr(sys, "frozen", False):
         exe_path = sys.executable
-        return f'"{exe_path}" --dir "%v"'
+        if menu_type == "file":
+            return f'"{exe_path}" --file "%1"'
+        else:
+            return f'"{exe_path}" --dir "%v"'
 
     # 开发环境：使用 Python 解释器
     python_exe = sys.executable
     install_dir = Path(__file__).parent.parent.parent.parent.resolve()
     install_dir_str = str(install_dir).replace("\\", "\\\\")
-    python_code = (
-        f"import sys; sys.path.insert(0, '{install_dir_str}'); "
-        f"from smart_svn_commit.windows.context_menu_installer import handle_context_menu; "
-        f"handle_context_menu('%v')"
-    )
+
+    # 使用 menu_check.py 作为入口点，它会先检查是否是 SVN 工作副本
+    if menu_type == "file":
+        python_code = (
+            f"import sys; sys.path.insert(0, '{install_dir_str}'); "
+            f"from smart_svn_commit.windows.menu_check import check_svn_and_launch; "
+            f"check_svn_and_launch('%1', is_dir=False)"
+        )
+    else:
+        python_code = (
+            f"import sys; sys.path.insert(0, '{install_dir_str}'); "
+            f"from smart_svn_commit.windows.menu_check import check_svn_and_launch; "
+            f"check_svn_and_launch('%v', is_dir=True)"
+        )
     return f'"{python_exe}" -c "{python_code}"'
 
 
 def register_context_menu() -> bool:
     """
-    注册右键菜单（文件夹背景 + 文件夹本身）
+    注册右键菜单（文件夹背景 + 文件夹本身 + 文件）
 
     Returns:
         是否成功
     """
     try:
-        command = get_install_command()
+        dir_command = get_install_command("dir")
+        file_command = get_install_command("file")
 
         # 注册文件夹背景右键菜单
         if not set_registry_value(
@@ -134,7 +196,7 @@ def register_context_menu() -> bool:
         ):
             return False
         if not set_registry_value(
-            winreg.HKEY_CURRENT_USER, CONTEXT_MENU_BG_COMMAND_KEY_PATH, "", command
+            winreg.HKEY_CURRENT_USER, CONTEXT_MENU_BG_COMMAND_KEY_PATH, "", dir_command
         ):
             return False
 
@@ -144,7 +206,17 @@ def register_context_menu() -> bool:
         ):
             return False
         if not set_registry_value(
-            winreg.HKEY_CURRENT_USER, CONTEXT_MENU_DIR_COMMAND_KEY_PATH, "", command
+            winreg.HKEY_CURRENT_USER, CONTEXT_MENU_DIR_COMMAND_KEY_PATH, "", dir_command
+        ):
+            return False
+
+        # 注册文件右键菜单
+        if not set_registry_value(
+            winreg.HKEY_CURRENT_USER, CONTEXT_MENU_FILE_KEY_PATH, "", "Smart SVN Commit"
+        ):
+            return False
+        if not set_registry_value(
+            winreg.HKEY_CURRENT_USER, CONTEXT_MENU_FILE_COMMAND_KEY_PATH, "", file_command
         ):
             return False
 
@@ -158,7 +230,7 @@ def register_context_menu() -> bool:
 
 def unregister_context_menu() -> bool:
     """
-    卸载右键菜单（文件夹背景 + 文件夹本身）
+    卸载右键菜单（文件夹背景 + 文件夹本身 + 文件）
 
     Returns:
         是否成功
@@ -171,6 +243,10 @@ def unregister_context_menu() -> bool:
         # 删除文件夹菜单
         delete_registry_key(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_DIR_COMMAND_KEY_PATH)
         delete_registry_key(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_DIR_KEY_PATH)
+
+        # 删除文件菜单
+        delete_registry_key(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_FILE_COMMAND_KEY_PATH)
+        delete_registry_key(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_FILE_KEY_PATH)
 
         print("右键菜单已成功卸载", file=sys.stderr)
         return True
@@ -187,9 +263,130 @@ def is_context_menu_registered() -> bool:
     Returns:
         是否已注册（任一路径存在即返回 True）
     """
-    return registry_key_exists(
-        winreg.HKEY_CURRENT_USER, CONTEXT_MENU_BG_KEY_PATH
-    ) or registry_key_exists(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_DIR_KEY_PATH)
+    return (
+        registry_key_exists(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_BG_KEY_PATH)
+        or registry_key_exists(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_DIR_KEY_PATH)
+        or registry_key_exists(winreg.HKEY_CURRENT_USER, CONTEXT_MENU_FILE_KEY_PATH)
+    )
+
+
+# ============================================================================
+# COM Shell Extension 注册/卸载函数
+# ============================================================================
+
+COM_MENU_KEY_PATHS = [
+    r"Software\Classes\Directory\Background\shellex\ContextMenuHandlers\SmartSvnCommit",
+    r"Software\Classes\Directory\shellex\ContextMenuHandlers\SmartSvnCommit",
+    r"Software\Classes\*\shellex\ContextMenuHandlers\SmartSvnCommit",
+]
+
+
+def register_com_context_menu() -> bool:
+    """
+    注册 COM Shell Extension 右键菜单
+
+    COM 扩展可以动态判断是否显示菜单项，只在 SVN 工作副本中显示
+
+    Returns:
+        是否成功
+    """
+    try:
+        # 获取安装目录
+        install_dir = Path(__file__).parent.parent.parent.parent.resolve()
+        src_dir = install_dir / "src"
+        extension_module = src_dir / "smart_svn_commit" / "windows" / "context_menu_extension.py"
+
+        # 构建注册命令
+        python_exe = sys.executable
+        cmd = [
+            python_exe,
+            str(extension_module),
+        ]
+
+        # 执行注册
+        result = subprocess.run(
+            cmd, check=True, capture_output=True, text=True, cwd=str(src_dir)
+        )
+
+        # 重启资源管理器
+        _restart_explorer()
+
+        print("COM Shell Extension 右键菜单已成功注册", file=sys.stderr)
+        print("菜单项将只在 SVN 工作副本中显示", file=sys.stderr)
+        return True
+
+    except subprocess.CalledProcessError as e:
+        print(f"注册 COM 扩展失败: {e}", file=sys.stderr)
+        print(f"stdout: {e.stdout}", file=sys.stderr)
+        print(f"stderr: {e.stderr}", file=sys.stderr)
+        return False
+    except Exception as e:
+        print(f"注册 COM 扩展失败: {e}", file=sys.stderr)
+        return False
+
+
+def unregister_com_context_menu() -> bool:
+    """
+    卸载 COM Shell Extension 右键菜单
+
+    Returns:
+        是否成功
+    """
+    try:
+        # 获取安装目录
+        install_dir = Path(__file__).parent.parent.parent.parent.resolve()
+        src_dir = install_dir / "src"
+        extension_module = src_dir / "smart_svn_commit" / "windows" / "context_menu_extension.py"
+
+        # 构建卸载命令
+        python_exe = sys.executable
+        cmd = [
+            python_exe,
+            str(extension_module),
+            "--unregister",
+        ]
+
+        # 执行卸载
+        result = subprocess.run(
+            cmd, check=False, capture_output=True, text=True, cwd=str(src_dir)
+        )
+
+        # 重启资源管理器
+        _restart_explorer()
+
+        print("COM Shell Extension 右键菜单已成功卸载", file=sys.stderr)
+        return True
+
+    except Exception as e:
+        print(f"卸载 COM 扩展失败: {e}", file=sys.stderr)
+        return False
+
+
+def is_com_context_menu_registered() -> bool:
+    """
+    检查 COM Shell Extension 右键菜单是否已注册
+
+    Returns:
+        是否已注册
+    """
+    for key_path in COM_MENU_KEY_PATHS:
+        if registry_key_exists(winreg.HKEY_CURRENT_USER, key_path):
+            return True
+    return False
+
+
+def _restart_explorer() -> None:
+    """重启 Windows 资源管理器以使更改生效"""
+    try:
+        # 通知资源管理器刷新设置
+        subprocess.run(
+            ["taskkill", "/f", "/im", "explorer.exe"],
+            check=False,
+            capture_output=True,
+        )
+        subprocess.run(["start", "explorer.exe"], shell=True, check=False)
+    except Exception:
+        pass
 
 
 # 主入口（用于注册表命令调用）

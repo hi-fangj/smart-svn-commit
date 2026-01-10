@@ -29,8 +29,11 @@ WINDOWS_AVAILABLE = sys.platform == "win32"
 if WINDOWS_AVAILABLE:
     try:
         from smart_svn_commit.windows import (
+            is_com_context_menu_registered,
             is_context_menu_registered,
+            register_com_context_menu,
             register_context_menu,
+            unregister_com_context_menu,
             unregister_context_menu,
         )
     except ImportError:
@@ -94,7 +97,7 @@ def main() -> int:
     parser.add_argument(
         "--context-menu",
         type=str,
-        choices=["install", "uninstall", "status"],
+        choices=["install", "uninstall", "status", "install-com", "uninstall-com", "status-com"],
         help="Windows 右键菜单管理（仅 Windows）",
     )
 
@@ -110,14 +113,26 @@ def main() -> int:
             print("错误: 右键菜单功能仅支持 Windows 平台", file=sys.stderr)
             return 1
 
-        result = {
-            "install": register_context_menu,
-            "uninstall": unregister_context_menu,
-            "status": is_context_menu_registered,
-        }[args.context_menu]()
+        # COM 扩展命令
+        if args.context_menu in ("install-com", "uninstall-com", "status-com"):
+            result = {
+                "install-com": register_com_context_menu,
+                "uninstall-com": unregister_com_context_menu,
+                "status-com": is_com_context_menu_registered,
+            }[args.context_menu]()
 
-        if args.context_menu == "status":
-            print("右键菜单已注册" if result else "右键菜单未注册")
+            if args.context_menu == "status-com":
+                print("COM 右键菜单已注册" if result else "COM 右键菜单未注册")
+        else:
+            # 普通命令
+            result = {
+                "install": register_context_menu,
+                "uninstall": unregister_context_menu,
+                "status": is_context_menu_registered,
+            }[args.context_menu]()
+
+            if args.context_menu == "status":
+                print("右键菜单已注册" if result else "右键菜单未注册")
         return 0 if result else 1
 
     # 处理配置命令

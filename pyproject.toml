@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "smart-svn-commit"
-version = "2.3.0"
+version = "2.3.1"
 description = "AI 驱动的 SVN 提交助手，支持 PyQt5 GUI 和 TortoiseSVN 集成"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -34,6 +34,7 @@ dependencies = [
 
 [project.optional-dependencies]
 ai = ["openai>=1.0.0"]
+windows = ["pywin32>=305"]
 dev = [
     "pytest>=7.0",
     "pytest-qt>=4.0",
@@ -42,7 +43,7 @@ dev = [
     "mypy>=1.0",
     "pyinstaller>=6.0",
 ]
-all = ["smart-svn-commit[ai,dev]"]
+all = ["smart-svn-commit[ai,dev,windows]"]
 
 [project.urls]
 Homepage = "https://github.com/hi-fangj/smart-svn-commit"

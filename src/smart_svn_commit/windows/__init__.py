@@ -8,6 +8,9 @@ from .context_menu_installer import (
     is_context_menu_registered,
     is_svn_working_copy,
     handle_context_menu,
+    register_com_context_menu,
+    unregister_com_context_menu,
+    is_com_context_menu_registered,
 )
 
 __all__ = [
@@ -16,4 +19,7 @@ __all__ = [
     "is_context_menu_registered",
     "is_svn_working_copy",
     "handle_context_menu",
+    "register_com_context_menu",
+    "unregister_com_context_menu",
+    "is_com_context_menu_registered",
 ]
