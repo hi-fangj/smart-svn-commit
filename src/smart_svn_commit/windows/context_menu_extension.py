@@ -60,16 +60,13 @@ class SVNContextMenuExtension:
     _reg_clsid_ = CLSID_SVN_CONTEXT_MENU
     _reg_progid_ = "SmartSvnCommit.ContextMenu"
     _reg_desc_ = "Smart SVN Commit Context Menu Extension"
-    _public_methods_ = [
-        "QueryContextMenu",
-        "InvokeCommand",
-        "GetCommandString",
-        "Initialize",
-    ]
     _com_interfaces_ = [
+        shell.IID_IShellExtInit,
         shell.IID_IContextMenu,
-        pythoncom.IID_IShellExtInit,
     ]
+    _public_methods_ = (
+        shellcon.IContextMenu_Methods + shellcon.IShellExtInit_Methods
+    )
 
     def __init__(self):
         self.m_selected_files = []
