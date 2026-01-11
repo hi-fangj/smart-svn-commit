@@ -1,9 +1,9 @@
 ---
-name: OpenSpec: 归档
 description: 归档已部署的OpenSpec变更并更新规范。
-category: OpenSpec
-tags: [openspec, archive]
 ---
+<ChangeId>
+  $ARGUMENTS
+</ChangeId>
 <!-- OPENSPEC:START -->
 **护栏规则**
 - 优先使用简单、最小的实现，仅在请求或明确需要时才添加复杂性。

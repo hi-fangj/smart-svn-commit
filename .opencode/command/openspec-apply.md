@@ -1,9 +1,10 @@
 ---
-name: OpenSpec: 实施
 description: 实施已批准的OpenSpec变更并保持任务同步。
-category: OpenSpec
-tags: [openspec, apply]
 ---
+The user has requested to implement the following change proposal. Find the change proposal and follow the instructions below. If you're not sure or if ambiguous, ask for clarification from the user.
+<UserRequest>
+  $ARGUMENTS
+</UserRequest>
 <!-- OPENSPEC:START -->
 **护栏规则**
 - 优先使用简单、最小的实现，仅在请求或明确需要时才添加复杂性。
