@@ -39,6 +39,21 @@ from .styles import UIStyles
 from .svn_loader import SVNStatusLoader
 
 
+def _extract_status_from_display_text(display_text: str) -> str:
+    """
+    从显示文本中提取 SVN 状态码
+
+    Args:
+        display_text: 显示文本，格式如 "[M] file.cs"
+
+    Returns:
+        SVN 状态码（M/A/D/? 等）
+    """
+    if len(display_text) > 1 and display_text[0] == "[":
+        return display_text[1]
+    return ""
+
+
 def check_pyqt5_available(items: Optional[List[Tuple[str, str]]]) -> bool:
     """
     检查 PyQt5 是否可用
@@ -51,6 +66,7 @@ def check_pyqt5_available(items: Optional[List[Tuple[str, str]]]) -> bool:
     """
     try:
         from PyQt5.QtWidgets import QApplication
+
         return True
     except ImportError:
         print(
@@ -88,7 +104,7 @@ class TreeEventFilter(QObject):
         self._refresh_callback = refresh_callback
 
     def eventFilter(self, _obj, event):
-        """处理鼠标点击事件"""
+        """处理鼠标点击和按键事件"""
         if event.type() == QEvent.MouseButtonPress:
             item = self.tree.itemAt(event.pos())
             if not item:
@@ -98,8 +114,6 @@ class TreeEventFilter(QObject):
                 column = self.tree.columnAt(event.pos().x())
                 if column == PATH_COLUMN:
                     return self._handle_path_column_click(item, event)
-        elif event.type() == QEvent.MouseButtonDblClick:
-            return self._handle_double_click(event)
         elif event.type() == QEvent.KeyPress:
             return self._handle_key_press(event)
         return False
@@ -113,40 +127,14 @@ class TreeEventFilter(QObject):
         return False
 
     def _handle_path_column_click(self, item, event):
-        """处理路径列点击"""
-        if event.button() == Qt.RightButton:
-            # 右键显示菜单
-            file_path = extract_path_from_display_text(item.text(PATH_COLUMN))
-            if file_path:
-                status = self._extract_status(item.text(PATH_COLUMN))
-                menu = self._menu_builder.build_menu(file_path, status, self.tree)
-                menu.exec_(event.globalPos())
-            return True
-        else:
-            # 左键切换复选框
+        """处理路径列点击（仅左键）"""
+        if event.button() == Qt.LeftButton:
+            # 左键切换复选框（支持 Shift+范围选择）
             index = self.tree.indexOfTopLevelItem(item)
             current_state = item.checkState(CHECKBOX_COLUMN)
             new_state = Qt.Unchecked if current_state == Qt.Checked else Qt.Checked
             self.file_list.handle_item_click(index, new_state, is_checkbox=False)
         return False
-
-    def _handle_double_click(self, event):
-        """处理双击事件 - 打开 SVN diff"""
-        item = self.tree.itemAt(event.pos())
-        if item:
-            column = self.tree.columnAt(event.pos().x())
-            if column == PATH_COLUMN:
-                file_path = extract_path_from_display_text(item.text(PATH_COLUMN))
-                if file_path:
-                    self._svn_executor.diff(file_path)
-        return False
-
-    @staticmethod
-    def _extract_status(display_text: str) -> str:
-        """从显示文本中提取状态码"""
-        if len(display_text) > 1 and display_text[0] == "[":
-            return display_text[1]
-        return ""
 
 
 class MainWindow(QMainWindow):
@@ -176,11 +164,14 @@ class MainWindow(QMainWindow):
         self._result: Dict[str, Any] = {
             "selected": [],
             "commitMessage": "",
-            "cancelled": False
+            "cancelled": False,
         }
         self._svn_loader: Optional[SVNStatusLoader] = None
         self._svn_executor = SVNCommandExecutor()
         self._fs_helper = FileSystemHelper()
+        self._menu_builder = ContextMenuBuilder(
+            self._svn_executor, self._fs_helper, self
+        )
 
         # UI 组件（将在 _init_ui 中初始化）
         self.file_list: FileListWidget
@@ -375,6 +366,16 @@ class MainWindow(QMainWindow):
         # 树控件信号
         self.file_list.tree.itemChanged.connect(self._on_tree_item_changed)
 
+        # 禁用双击自动展开，启用自定义上下文菜单
+        self.file_list.tree.setExpandsOnDoubleClick(False)
+        self.file_list.tree.setContextMenuPolicy(Qt.CustomContextMenu)
+
+        # 连接双击和右键菜单信号
+        self.file_list.tree.itemDoubleClicked.connect(self._on_tree_double_click)
+        self.file_list.tree.customContextMenuRequested.connect(
+            self._on_tree_context_menu
+        )
+
         # 安装事件过滤器
         event_filter = TreeEventFilter(
             self.file_list.tree,
@@ -484,7 +485,7 @@ class MainWindow(QMainWindow):
             self._result["commitResult"] = {
                 "success": True,
                 "revision": revision,
-                "message": "提交成功"
+                "message": "提交成功",
             }
             self.close()
         else:
@@ -504,7 +505,7 @@ class MainWindow(QMainWindow):
             self._result["commitResult"] = {
                 "success": False,
                 "revision": None,
-                "message": "提交失败"
+                "message": "提交失败",
             }
 
     def _on_cancel(self) -> None:
@@ -573,6 +574,25 @@ class MainWindow(QMainWindow):
             index = self.file_list.tree.indexOfTopLevelItem(item)
             new_state = item.checkState(CHECKBOX_COLUMN)
             self.file_list.handle_item_click(index, new_state)
+
+    def _on_tree_double_click(self, item, column: int) -> None:
+        """处理双击事件 - 打开 SVN diff"""
+        if item and column == PATH_COLUMN:
+            file_path = extract_path_from_display_text(item.text(PATH_COLUMN))
+            if file_path:
+                self._svn_executor.diff(file_path)
+
+    def _on_tree_context_menu(self, pos) -> None:
+        """显示右键菜单"""
+        item = self.file_list.tree.itemAt(pos)
+        if item:
+            file_path = extract_path_from_display_text(item.text(PATH_COLUMN))
+            if file_path:
+                status = _extract_status_from_display_text(item.text(PATH_COLUMN))
+                menu = self._menu_builder.build_menu(
+                    file_path, status, self.file_list.tree
+                )
+                menu.exec_(self.file_list.tree.viewport().mapToGlobal(pos))
 
     def _show_help_dialog(self) -> None:
         """显示帮助对话框"""
