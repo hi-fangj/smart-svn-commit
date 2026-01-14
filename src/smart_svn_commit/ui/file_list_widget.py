@@ -318,31 +318,9 @@ class FileListWidget:
             new_state: 新的复选框状态（None 表示不改变复选框状态，仅处理备选项）
             is_checkbox: 是否来自复选框点击
         """
-        ui_logger.info(
-            f"[handle_item_click] 索引: {index}, 状态: {new_state}, 复选框: {is_checkbox}"
-        )
-
-        # 获取文件路径用于日志
-        item = (
-            self.tree.topLevelItem(index)
-            if index < self.tree.topLevelItemCount()
-            else None
-        )
-        file_path = (
-            extract_path_from_display_text(item.text(PATH_COLUMN)) if item else ""
-        )
-        ui_logger.info(f"[handle_item_click] 文件: {file_path}")
-
         if is_checkbox and new_state is not None:
-            state_str = "Checked" if new_state == Qt.Checked else "Unchecked"
-            ui_logger.info(
-                f"[复选框] 路径: {file_path}, 索引: {index}, 状态: {state_str}"
-            )
             self._handle_checkbox_click(index, new_state)
         else:
-            ui_logger.info(
-                f"[路径点击] 路径: {file_path}, 索引: {index}, 仅高亮: {new_state is None}"
-            )
             self._handle_path_click(index)
 
     def _handle_checkbox_click(self, index: int, new_state: Qt.CheckState) -> None:
@@ -377,26 +355,16 @@ class FileListWidget:
         Args:
             index: 项索引
         """
-        ui_logger.info(f"[_handle_path_click] 索引: {index}")
-
         modifiers = QGuiApplication.keyboardModifiers()
         is_shift = modifiers & Qt.ShiftModifier
-        ui_logger.info(
-            f"[_handle_path_click] 键盘修饰符: {modifiers}, Shift={is_shift}"
-        )
 
         if is_shift:
-            ui_logger.info(
-                f"[_handle_path_click] 检测到Shift，调用 _handle_shift_click"
-            )
             self._handle_shift_click(index)
         else:
-            ui_logger.info(f"[_handle_path_click] 普通点击，设置单个备选项")
             self.candidate_indices.clear()
             self.candidate_indices.add(index)
             self.update_candidate_highlight()
             self.shift_start_index = -1
-            ui_logger.info(f"[_handle_path_click] 备选项索引: {self.candidate_indices}")
 
     def _handle_shift_click(self, index: int) -> None:
         """
@@ -410,13 +378,9 @@ class FileListWidget:
             if start != index:
                 start, end = min(start, index), max(start, index)
                 self.candidate_indices = set(range(start, end + 1))
-                ui_logger.info(
-                    f"[Shift范围选择] 范围: {start}-{end} ({end - start + 1}个文件)"
-                )
                 self.update_candidate_highlight()
         elif self.shift_start_index < 0:
             self.shift_start_index = index
-            ui_logger.info(f"[Shift开始] 起始索引: {index}")
         else:
             if self.shift_start_index != index:
                 start, end = (
@@ -424,8 +388,5 @@ class FileListWidget:
                     max(self.shift_start_index, index),
                 )
                 self.candidate_indices = set(range(start, end + 1))
-                ui_logger.info(
-                    f"[Shift范围选择] 范围: {start}-{end} ({end - start + 1}个文件)"
-                )
                 self.update_candidate_highlight()
             self.shift_start_index = -1

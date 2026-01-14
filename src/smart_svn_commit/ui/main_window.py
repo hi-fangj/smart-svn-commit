@@ -85,143 +85,6 @@ def check_pyqt5_available(items: Optional[List[Tuple[str, str]]]) -> bool:
         return False
 
 
-class TreeEventFilter(QObject):
-    """树控件事件过滤器 - 处理路径点击和空白处清空备选项"""
-
-    # 双击检测常量
-    DOUBLE_CLICK_INTERVAL = 500  # ms
-    DOUBLE_CLICK_THRESHOLD = 15  # px
-
-    def __init__(
-        self,
-        tree_widget: QTreeWidget,
-        file_list_widget: FileListWidget,
-        svn_executor: SVNCommandExecutor,
-        fs_helper: FileSystemHelper,
-        refresh_callback=None,
-    ):
-        super().__init__()
-        self.tree = tree_widget
-        self.file_list = file_list_widget
-        self._svn_executor = svn_executor
-        self._fs_helper = fs_helper
-        self._menu_builder = ContextMenuBuilder(
-            svn_executor, fs_helper, tree_widget, refresh_callback
-        )
-        self._refresh_callback = refresh_callback
-
-        # 双击检测
-        self._last_click_time = 0
-        self._last_click_pos = None
-
-    def eventFilter(self, _obj, event):
-        """处理鼠标点击和按键事件"""
-        if event.type() == QEvent.MouseButtonPress:
-            ui_logger.debug(
-                f"[事件过滤器] MouseButtonPress, 位置: ({event.pos().x()}, {event.pos().y()}), 按钮: {event.button()}"
-            )
-
-            # 检测是否为双击（两次点击间隔小于500ms且位置相近）
-            current_time = event.timestamp()
-            if self._last_click_pos:
-                pos_diff = (
-                    abs(event.pos().x() - self._last_click_pos.x()) ** 2
-                    + abs(event.pos().y() - self._last_click_pos.y()) ** 2
-                ) ** 0.5
-                time_diff = current_time - self._last_click_time
-                ui_logger.debug(
-                    f"[双击检测] 时间间隔: {time_diff}ms, 位置偏移: {pos_diff:.1f}px"
-                )
-
-                if (
-                    time_diff < self.DOUBLE_CLICK_INTERVAL
-                    and pos_diff < self.DOUBLE_CLICK_THRESHOLD
-                ):
-                    # 检测到双击，跳过处理，让itemDoubleClicked信号触发
-                    item = self.tree.itemAt(event.pos())
-                    if item:
-                        display_text = item.text(PATH_COLUMN)
-                        file_path = (
-                            extract_path_from_display_text(display_text)
-                            if display_text
-                            else ""
-                        )
-                        ui_logger.info(
-                            f"[双击] 路径: {file_path}, 时间间隔: {time_diff}ms, 位置偏移: {pos_diff:.1f}px"
-                        )
-                    return False
-
-            self._last_click_time = current_time
-            self._last_click_pos = event.pos()
-
-            item = self.tree.itemAt(event.pos())
-            ui_logger.debug(
-                f"[事件过滤器] itemAt 结果: {item is not None}, 位置: ({event.pos().x()}, {event.pos().y()})"
-            )
-
-            if not item:
-                # 点击空白处清空备选项
-                ui_logger.info("[点击空白] 清空备选项")
-                self.file_list.clear_candidates()
-            else:
-                column = self.tree.columnAt(event.pos().x())
-                ui_logger.debug(
-                    f"[事件过滤器] 点击列: {column} (PATH_COLUMN={PATH_COLUMN})"
-                )
-                if column == PATH_COLUMN:
-                    return self._handle_path_column_click(item, event)
-        elif event.type() == QEvent.KeyPress:
-            ui_logger.debug(f"[事件过滤器] KeyPress, 按键: {event.key()}")
-            return self._handle_key_press(event)
-        return False
-
-    def _handle_key_press(self, event):
-        """处理按键事件 - F5 刷新"""
-        if event.key() == Qt.Key_F5:
-            if self._refresh_callback:
-                self._refresh_callback()
-            return True
-        return False
-
-    def _handle_path_column_click(self, item, event):
-        """处理路径列点击（仅左键）"""
-        ui_logger.info(
-            f"[路径列点击] 开始处理, 按钮: {event.button()}, LeftButton={Qt.LeftButton}"
-        )
-
-        if event.button() == Qt.LeftButton:
-            index = self.tree.indexOfTopLevelItem(item)
-            display_text = item.text(PATH_COLUMN)
-            file_path = (
-                extract_path_from_display_text(display_text) if display_text else ""
-            )
-
-            ui_logger.info(f"[路径列点击] 索引: {index}, 路径: {file_path}")
-
-            # Shift+点击只设置备选项，不改变复选框状态
-            modifiers = QGuiApplication.keyboardModifiers()
-            is_shift = modifiers & Qt.ShiftModifier
-            ui_logger.info(f"[路径列点击] 键盘修饰符: {modifiers}, Shift={is_shift}")
-
-            if is_shift:
-                ui_logger.info(
-                    f"[SHIFT+点击] 路径: {file_path}, 索引: {index}, 仅设置备选项"
-                )
-                self.file_list.handle_item_click(index, None, is_checkbox=False)
-            else:
-                # 普通点击切换复选框状态
-                current_state = item.checkState(CHECKBOX_COLUMN)
-                new_state = Qt.Unchecked if current_state == Qt.Checked else Qt.Checked
-                state_str = "Checked" if new_state == Qt.Checked else "Unchecked"
-                ui_logger.info(
-                    f"[点击] 路径: {file_path}, 索引: {index}, 状态: {state_str}"
-                )
-                self.file_list.handle_item_click(index, new_state, is_checkbox=False)
-        else:
-            ui_logger.info(f"[路径列点击] 非左键点击，忽略 (按钮: {event.button()})")
-        return False
-
-
 class MainWindow(QMainWindow):
     """SVN 提交助手主窗口"""
 
@@ -246,9 +109,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         print("[MainWindow] super().__init__() 完成", file=sys.stderr)
 
-        print("[MainWindow] 开始调用 ui_logger.info", file=sys.stderr)
-        ui_logger.info("[MainWindow] __init__ 开始")
-        print("[MainWindow] ui_logger.info 调用完成", file=sys.stderr)
+        pass
 
         self._items = items
         self._original_items: List[Tuple[str, str]] = []
@@ -278,32 +139,18 @@ class MainWindow(QMainWindow):
 
         # 初始化窗口
         print("[MainWindow] 调用 _init_window", file=sys.stderr)
-        ui_logger.info("[MainWindow] 开始初始化窗口")
         self._init_window()
-        print("[MainWindow] _init_window 完成", file=sys.stderr)
-
-        print("[MainWindow] 调用 _init_ui", file=sys.stderr)
-        ui_logger.info("[MainWindow] 开始初始化UI")
         self._init_ui()
-        print("[MainWindow] _init_ui 完成", file=sys.stderr)
-
-        print("[MainWindow] 调用 _connect_signals", file=sys.stderr)
-        ui_logger.info("[MainWindow] 开始连接信号")
         self._connect_signals()
-        print("[MainWindow] _connect_signals 完成", file=sys.stderr)
 
         # 加载数据
         if items is not None:
-            print(f"[MainWindow] 加载文件列表: {len(items)}", file=sys.stderr)
-            ui_logger.info(f"[MainWindow] 加载提供的文件列表，数量: {len(items)}")
             self._load_items(items)
         else:
-            print("[MainWindow] 启动异步加载", file=sys.stderr)
-            ui_logger.info("[MainWindow] 启动异步加载")
+            pass
             self._start_async_load()
 
-        print("[MainWindow] __init__ 完成", file=sys.stderr)
-        ui_logger.info("[MainWindow] __init__ 完成")
+        pass
 
     def _init_window(self) -> None:
         """初始化窗口基本属性"""
@@ -484,21 +331,16 @@ class MainWindow(QMainWindow):
 
         # 树控件信号
         self.file_list.tree.itemChanged.connect(self._on_tree_item_changed)
-        ui_logger.info("[信号] 已连接 itemChanged 信号")
 
         # 禁用双击自动展开，启用自定义上下文菜单
         self.file_list.tree.setExpandsOnDoubleClick(False)
         self.file_list.tree.setContextMenuPolicy(Qt.CustomContextMenu)
-        ui_logger.info("[树控件] 已配置双击和右键菜单策略")
 
         # 连接双击、点击和右键菜单信号
         self.file_list.tree.itemClicked.connect(self._on_tree_item_clicked)
         self.file_list.tree.itemDoubleClicked.connect(self._on_tree_double_click)
         self.file_list.tree.customContextMenuRequested.connect(
             self._on_tree_context_menu
-        )
-        ui_logger.info(
-            "[信号] 已连接 itemClicked、itemDoubleClicked 和 customContextMenuRequested 信号"
         )
 
         # 快捷键
@@ -692,28 +534,16 @@ class MainWindow(QMainWindow):
                 extract_path_from_display_text(display_text) if display_text else ""
             )
 
-            ui_logger.info(f"[路径点击] 索引: {index}, 路径: {file_path}, 列: {column}")
-
             # 检测Shift键
             modifiers = QGuiApplication.keyboardModifiers()
             is_shift = modifiers & Qt.ShiftModifier
-            ui_logger.info(
-                f"[路径点击] 键盘修饰符: {modifiers}, Shift={bool(is_shift)}"
-            )
 
             if is_shift:
-                ui_logger.info(
-                    f"[SHIFT+点击] 路径: {file_path}, 索引: {index}, 仅设置备选项"
-                )
                 self.file_list.handle_item_click(index, None, is_checkbox=False)
             else:
-                # 普通点击切换复选框状态
+                # 段通点击切换复选框状态
                 current_state = item.checkState(CHECKBOX_COLUMN)
                 new_state = Qt.Unchecked if current_state == Qt.Checked else Qt.Checked
-                state_str = "Checked" if new_state == Qt.Checked else "Unchecked"
-                ui_logger.info(
-                    f"[点击] 路径: {file_path}, 索引: {index}, 状态: {state_str}"
-                )
                 self.file_list.handle_item_click(index, new_state, is_checkbox=False)
 
     def _on_tree_item_changed(self, item, column: int) -> None:
@@ -725,40 +555,25 @@ class MainWindow(QMainWindow):
 
     def _on_tree_double_click(self, item, column: int) -> None:
         """处理双击事件 - 打开 SVN diff"""
-        ui_logger.info(
-            f"[双击信号] item={item is not None}, column={column}, PATH_COLUMN={PATH_COLUMN}"
-        )
-
         if item and column == PATH_COLUMN:
             display_text = item.text(PATH_COLUMN)
             file_path = (
                 extract_path_from_display_text(display_text) if display_text else ""
             )
-            ui_logger.info(f"[双击执行] 路径: {file_path}")
             if file_path:
-                ui_logger.info(f"[双击执行] 调用 SVN diff: {file_path}")
                 self._svn_executor.diff(file_path)
-        else:
-            ui_logger.info(
-                f"[双击信号] 未满足条件: item={item is not None}, column={column}"
-            )
 
     def _on_tree_context_menu(self, pos) -> None:
         """显示右键菜单"""
-        ui_logger.info(f"[右键菜单信号] 位置: ({pos.x()}, {pos.y()})")
-
         item = self.file_list.tree.itemAt(pos)
-        ui_logger.info(f"[右键菜单] itemAt 结果: {item is not None}")
 
         # 如果 itemAt 返回 None，可能是：
         # 1. 点击空白处 → 不显示菜单
         # 2. 键盘触发（pos 为无效坐标）→ 使用 currentItem
         if not item:
             if pos.x() == 0 and pos.y() == 0:
-                ui_logger.info("[右键菜单] 键盘触发，使用 currentItem")
                 item = self.file_list.tree.currentItem()
             else:
-                ui_logger.info("[右键菜单] 点击空白处，不显示菜单")
                 return
 
         if item:
@@ -767,17 +582,12 @@ class MainWindow(QMainWindow):
                 extract_path_from_display_text(display_text) if display_text else ""
             )
             status = _extract_status_from_display_text(display_text)
-            ui_logger.info(
-                f"[右键菜单] 文件: {file_path}, 状态: {status}, 位置: ({pos.x()}, {pos.y()})"
-            )
 
             if file_path:
-                ui_logger.info(f"[右键菜单] 构建菜单并显示")
                 menu = self._menu_builder.build_menu(
                     file_path, status, self.file_list.tree
                 )
                 menu.exec_(self.file_list.tree.viewport().mapToGlobal(pos))
-                ui_logger.info(f"[右键菜单] 菜单已关闭")
 
     def _show_log_dialog(self) -> None:
         """显示日志对话框"""
