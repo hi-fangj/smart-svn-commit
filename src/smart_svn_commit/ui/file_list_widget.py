@@ -318,6 +318,10 @@ class FileListWidget:
             new_state: 新的复选框状态（None 表示不改变复选框状态，仅处理备选项）
             is_checkbox: 是否来自复选框点击
         """
+        ui_logger.info(
+            f"[handle_item_click] 索引: {index}, 状态: {new_state}, 复选框: {is_checkbox}"
+        )
+
         # 获取文件路径用于日志
         item = (
             self.tree.topLevelItem(index)
@@ -327,15 +331,16 @@ class FileListWidget:
         file_path = (
             extract_path_from_display_text(item.text(PATH_COLUMN)) if item else ""
         )
+        ui_logger.info(f"[handle_item_click] 文件: {file_path}")
 
         if is_checkbox and new_state is not None:
             state_str = "Checked" if new_state == Qt.Checked else "Unchecked"
-            ui_logger.debug(
+            ui_logger.info(
                 f"[复选框] 路径: {file_path}, 索引: {index}, 状态: {state_str}"
             )
             self._handle_checkbox_click(index, new_state)
         else:
-            ui_logger.debug(
+            ui_logger.info(
                 f"[路径点击] 路径: {file_path}, 索引: {index}, 仅高亮: {new_state is None}"
             )
             self._handle_path_click(index)
@@ -372,13 +377,26 @@ class FileListWidget:
         Args:
             index: 项索引
         """
-        if QGuiApplication.keyboardModifiers() & Qt.ShiftModifier:
+        ui_logger.info(f"[_handle_path_click] 索引: {index}")
+
+        modifiers = QGuiApplication.keyboardModifiers()
+        is_shift = modifiers & Qt.ShiftModifier
+        ui_logger.info(
+            f"[_handle_path_click] 键盘修饰符: {modifiers}, Shift={is_shift}"
+        )
+
+        if is_shift:
+            ui_logger.info(
+                f"[_handle_path_click] 检测到Shift，调用 _handle_shift_click"
+            )
             self._handle_shift_click(index)
         else:
+            ui_logger.info(f"[_handle_path_click] 普通点击，设置单个备选项")
             self.candidate_indices.clear()
             self.candidate_indices.add(index)
             self.update_candidate_highlight()
             self.shift_start_index = -1
+            ui_logger.info(f"[_handle_path_click] 备选项索引: {self.candidate_indices}")
 
     def _handle_shift_click(self, index: int) -> None:
         """
