@@ -55,41 +55,67 @@ def handle_context_menu(path: str) -> None:
     Args:
         path: 用户右键点击的目录路径
     """
+    print(f"[handle_context_menu] 开始处理目录: {path}", file=sys.stderr)
+    print(f"[handle_context_menu] sys.executable: {sys.executable}", file=sys.stderr)
+    print(
+        f"[handle_context_menu] sys.frozen: {getattr(sys, 'frozen', False)}",
+        file=sys.stderr,
+    )
+
     # 检查是否是 SVN 工作副本
     if not is_svn_working_copy(path):
         # 不是 SVN 目录，静默退出
+        print(f"[handle_context_menu] 不是 SVN 工作副本，退出", file=sys.stderr)
         sys.exit(0)
 
     # 是 SVN 目录，启动 GUI
     try:
         # 获取当前脚本所在目录的安装路径
         install_dir = get_install_dir()
+        print(f"[handle_context_menu] install_dir: {install_dir}", file=sys.stderr)
+
         if (install_dir / "smart_svn_commit").exists():
             src_dir = install_dir / "src"
             sys.path.insert(0, str(src_dir))
+            print(
+                f"[handle_context_menu] 添加 src_dir 到 path: {src_dir}",
+                file=sys.stderr,
+            )
 
+        print("[handle_context_menu] 开始导入模块...", file=sys.stderr)
         from smart_svn_commit.core.commit import run_svn_status
         from smart_svn_commit.core.config import load_config
         from smart_svn_commit.core.parser import parse_svn_status
         from smart_svn_commit.ui.main_window import show_quick_pick
         from smart_svn_commit.utils.filters import apply_ignore_patterns
 
+        print("[handle_context_menu] 模块导入完成", file=sys.stderr)
+
         # 切换到目标目录
+        print(f"[handle_context_menu] 切换到目录: {path}", file=sys.stderr)
         os.chdir(path)
 
         # 获取 SVN 状态
+        print("[handle_context_menu] 开始获取 SVN 状态...", file=sys.stderr)
         files = run_svn_status()
+        print(f"[handle_context_menu] 获取到 {len(files)} 个文件", file=sys.stderr)
 
         # 应用忽略模式
         config = load_config()
         ignore_patterns = config.get("ignorePatterns", [])
         files = apply_ignore_patterns(files, ignore_patterns)
+        print(f"[handle_context_menu] 过滤后 {len(files)} 个文件", file=sys.stderr)
 
-        # 始终显示 GUI（即使没有变动）
+        # 最终显示 GUI（即使没有变动）
+        print("[handle_context_menu] 调用 show_quick_pick", file=sys.stderr)
         show_quick_pick(files)
+        print("[handle_context_menu] show_quick_pick 返回", file=sys.stderr)
 
     except Exception as e:
-        print(f"启动 GUI 失败: {e}", file=sys.stderr)
+        print(f"[handle_context_menu] 启动 GUI 失败: {e}", file=sys.stderr)
+        import traceback
+
+        traceback.print_exc()
         sys.exit(1)
 
 
@@ -100,35 +126,61 @@ def handle_file_context_menu(file_path: str) -> None:
     Args:
         file_path: 用户右键点击的文件路径
     """
+    print(f"[handle_file_context_menu] 开始处理文件: {file_path}", file=sys.stderr)
+    print(
+        f"[handle_file_context_menu] sys.executable: {sys.executable}", file=sys.stderr
+    )
+    print(
+        f"[handle_file_context_menu] sys.frozen: {getattr(sys, 'frozen', False)}",
+        file=sys.stderr,
+    )
+
     # 检查文件所在目录是否是 SVN 工作副本
     file = Path(file_path)
     parent_dir = file.parent
 
     if not is_svn_working_copy(str(parent_dir)):
         # 不是 SVN 工作副本，静默退出
+        print(f"[handle_file_context_menu] 不是 SVN 工作副本，退出", file=sys.stderr)
         sys.exit(0)
 
     # 是 SVN 工作副本，启动 GUI 并显示该文件
     try:
         # 获取当前脚本所在目录的安装路径
         install_dir = get_install_dir()
+        print(f"[handle_file_context_menu] install_dir: {install_dir}", file=sys.stderr)
+
         if (install_dir / "smart_svn_commit").exists():
             src_dir = install_dir / "src"
             sys.path.insert(0, str(src_dir))
+            print(
+                f"[handle_file_context_menu] 添加 src_dir 到 path: {src_dir}",
+                file=sys.stderr,
+            )
 
+        print("[handle_file_context_menu] 开始导入模块...", file=sys.stderr)
         from smart_svn_commit.ui.main_window import show_quick_pick
 
+        print("[handle_file_context_menu] 模块导入完成", file=sys.stderr)
+
         # 切换到文件所在目录
+        print(f"[handle_file_context_menu] 切换到目录: {parent_dir}", file=sys.stderr)
         os.chdir(parent_dir)
 
         # 创建单文件列表
         files = [("M", file.name)]
+        print(f"[handle_file_context_menu] 文件列表: {files}", file=sys.stderr)
 
         # 显示 GUI
+        print("[handle_file_context_menu] 调用 show_quick_pick", file=sys.stderr)
         show_quick_pick(files)
+        print("[handle_file_context_menu] show_quick_pick 返回", file=sys.stderr)
 
     except Exception as e:
-        print(f"启动 GUI 失败: {e}", file=sys.stderr)
+        print(f"[handle_file_context_menu] 启动 GUI 失败: {e}", file=sys.stderr)
+        import traceback
+
+        traceback.print_exc()
         sys.exit(1)
 
 
@@ -243,14 +295,10 @@ def _register_single_menu(menu_type: str, command: str) -> bool:
         return False
 
     # 设置图标
-    if not set_registry_value(
-        winreg.HKEY_CURRENT_USER, key_path, "Icon", icon_value
-    ):
+    if not set_registry_value(winreg.HKEY_CURRENT_USER, key_path, "Icon", icon_value):
         return False
 
-    if not set_registry_value(
-        winreg.HKEY_CURRENT_USER, command_key_path, "", command
-    ):
+    if not set_registry_value(winreg.HKEY_CURRENT_USER, command_key_path, "", command):
         return False
 
     return True
@@ -296,7 +344,9 @@ def is_context_menu_registered() -> bool:
         是否已注册（任一路径存在即返回 True）
     """
     return any(
-        registry_key_exists(winreg.HKEY_CURRENT_USER, _MENU_REGISTRY_PATHS[menu_type][0])
+        registry_key_exists(
+            winreg.HKEY_CURRENT_USER, _MENU_REGISTRY_PATHS[menu_type][0]
+        )
         for menu_type in ("background", "directory", "file")
     )
 
@@ -324,14 +374,18 @@ def register_com_context_menu() -> bool:
     try:
         # PyInstaller 打包环境：直接调用注册函数
         if getattr(sys, "frozen", False):
-            from smart_svn_commit.windows.context_menu_extension import DllRegisterServer
+            from smart_svn_commit.windows.context_menu_extension import (
+                DllRegisterServer,
+            )
 
             DllRegisterServer()
         else:
             # 开发环境：通过 subprocess 执行脚本
             install_dir = get_install_dir().resolve()
             src_dir = install_dir / "src"
-            extension_module = src_dir / "smart_svn_commit" / "windows" / "context_menu_extension.py"
+            extension_module = (
+                src_dir / "smart_svn_commit" / "windows" / "context_menu_extension.py"
+            )
 
             python_exe = sys.executable
             cmd = [python_exe, str(extension_module)]
@@ -367,14 +421,18 @@ def unregister_com_context_menu() -> bool:
     try:
         # PyInstaller 打包环境：直接调用卸载函数
         if getattr(sys, "frozen", False):
-            from smart_svn_commit.windows.context_menu_extension import DllUnregisterServer
+            from smart_svn_commit.windows.context_menu_extension import (
+                DllUnregisterServer,
+            )
 
             DllUnregisterServer()
         else:
             # 开发环境：通过 subprocess 执行脚本
             install_dir = get_install_dir().resolve()
             src_dir = install_dir / "src"
-            extension_module = src_dir / "smart_svn_commit" / "windows" / "context_menu_extension.py"
+            extension_module = (
+                src_dir / "smart_svn_commit" / "windows" / "context_menu_extension.py"
+            )
 
             python_exe = sys.executable
             cmd = [

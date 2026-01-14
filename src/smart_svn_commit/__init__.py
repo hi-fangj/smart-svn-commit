@@ -4,7 +4,7 @@ Smart SVN Commit - AI 驱动的 SVN 提交助手
 提供 PyQt5 GUI 界面，支持 AI 生成提交消息和 TortoiseSVN 集成。
 """
 
-__version__ = "3.0.16"
+__version__ = "3.0.17"
 __author__ = "Your Name"
 __license__ = "MIT"
 

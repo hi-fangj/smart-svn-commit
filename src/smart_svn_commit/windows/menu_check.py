@@ -7,11 +7,20 @@ import os
 import sys
 from pathlib import Path
 
+print(f"[menu_check.py] 模块加载开始", file=sys.stderr)
+print(f"[menu_check.py] sys.executable: {sys.executable}", file=sys.stderr)
+print(f"[menu_check.py] sys.argv: {sys.argv}", file=sys.stderr)
+
 # 获取当前脚本所在目录的安装路径
-install_dir = Path(__file__).parent.parent.parent.parent
+install_dir = Path(__file__).parent.parent.parent
+print(f"[menu_check.py] install_dir: {install_dir}", file=sys.stderr)
+
 if (install_dir / "smart_svn_commit").exists():
     src_dir = install_dir / "src"
     sys.path.insert(0, str(src_dir))
+    print(f"[menu_check.py] 添加 src_dir 到 path: {src_dir}", file=sys.stderr)
+
+print("[menu_check.py] 模块加载完成", file=sys.stderr)
 
 
 def check_svn_and_launch(file_path: str, is_dir: bool = False) -> None:
@@ -32,20 +41,31 @@ def check_svn_and_launch(file_path: str, is_dir: bool = False) -> None:
     svn_dir = check_path / ".svn"
     if not svn_dir.is_dir():
         # 不是 SVN 工作副本，静默退出（菜单项不会显示）
+        print(f"[check_svn_and_launch] 不是 SVN 工作副本，退出", file=sys.stderr)
         sys.exit(0)
 
     # 是 SVN 工作副本，启动主程序
     try:
+        print("[check_svn_and_launch] 导入 cli.main...", file=sys.stderr)
         from smart_svn_commit.cli import main
+
         # 修改 sys.argv 来传递正确的参数
         if is_dir:
             sys.argv = [sys.argv[0], "--dir", file_path]
         else:
             sys.argv = [sys.argv[0], "--file", file_path]
+
+        print(f"[check_svn_and_launch] sys.argv: {sys.argv}", file=sys.stderr)
+        print("[check_svn_and_launch] 调用 main()", file=sys.stderr)
+
         # 调用主程序
         sys.exit(main())
+
     except Exception as e:
-        print(f"启动失败: {e}", file=sys.stderr)
+        print(f"[check_svn_and_launch] 启动失败: {e}", file=sys.stderr)
+        import traceback
+
+        traceback.print_exc()
         sys.exit(1)
 
 
