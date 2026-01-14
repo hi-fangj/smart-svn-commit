@@ -508,8 +508,8 @@ class MainWindow(QMainWindow):
             self._fs_helper,
             self._refresh_file_list,
         )
-        self.file_list.tree.viewport().installEventFilter(event_filter)
-        ui_logger.info("[事件过滤器] 已安装到 tree.viewport()")
+        self.file_list.tree.installEventFilter(event_filter)
+        ui_logger.info("[事件过滤器] 已安装到 tree")
 
         # 快捷键
         self.confirm_btn.setShortcut(self.CONFIRM_BUTTON_SHORTCUT)
