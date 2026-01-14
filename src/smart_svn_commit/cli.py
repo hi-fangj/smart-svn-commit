@@ -19,10 +19,13 @@ from smart_svn_commit.utils.filters import apply_ignore_patterns
 
 # 尝试导入 UI 模块
 try:
+    print("[cli.py] 正在导入 show_quick_pick...", file=sys.stderr)
     from smart_svn_commit.ui.main_window import show_quick_pick
 
+    print("[cli.py] show_quick_pick 导入成功", file=sys.stderr)
     UI_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    print(f"[cli.py] show_quick_pick 导入失败: {e}", file=sys.stderr)
     UI_AVAILABLE = False
 
 # 尝试导入 Windows 模块
@@ -93,9 +96,17 @@ def _handle_context_menu_command(command: str) -> int:
 
     # COM 扩展命令映射
     com_commands = {
-        "install-com": (register_com_context_menu, "COM 右键菜单已注册", "COM 右键菜单未注册"),
+        "install-com": (
+            register_com_context_menu,
+            "COM 右键菜单已注册",
+            "COM 右键菜单未注册",
+        ),
         "uninstall-com": (unregister_com_context_menu, None, None),
-        "status-com": (is_com_context_menu_registered, "COM 右键菜单已注册", "COM 右键菜单未注册"),
+        "status-com": (
+            is_com_context_menu_registered,
+            "COM 右键菜单已注册",
+            "COM 右键菜单未注册",
+        ),
     }
 
     # 普通命令映射
@@ -120,6 +131,8 @@ def _handle_context_menu_command(command: str) -> int:
 
 def main() -> int:
     """主 CLI 入口点"""
+    print("[cli.py] main() 函数开始执行", file=sys.stderr)
+    print(f"[cli.py] sys.argv: {sys.argv}", file=sys.stderr)
     parser = argparse.ArgumentParser(
         description="Smart SVN Commit - AI 驱动的 SVN 提交助手",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -147,7 +160,9 @@ def main() -> int:
         """,
     )
 
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
+    )
 
     parser.add_argument("--files", type=str, help="逗号分隔的文件列表")
 
@@ -170,7 +185,14 @@ def main() -> int:
     parser.add_argument(
         "--context-menu",
         type=str,
-        choices=["install", "uninstall", "status", "install-com", "uninstall-com", "status-com"],
+        choices=[
+            "install",
+            "uninstall",
+            "status",
+            "install-com",
+            "uninstall-com",
+            "status-com",
+        ],
         help="Windows 右键菜单管理（仅 Windows）",
     )
 
@@ -209,6 +231,7 @@ def main() -> int:
 
     # 处理 --file 参数（异步加载，立即显示 UI）
     if args.file:
+        print(f"[cli.py] 处理 --file 参数: {args.file}", file=sys.stderr)
         _check_ui_availability()
         # 切换到文件所在目录
         file_path = Path(args.file).resolve()
@@ -217,12 +240,17 @@ def main() -> int:
         # 传入 None 表示异步加载（UI 立即显示，后台加载）
         # 但对于单文件模式，直接创建列表即可，不需要异步
         files = [("M", str(file_path.name))]
+        print(f"[cli.py] 调用 show_quick_pick，文件数: {len(files)}", file=sys.stderr)
         result = show_quick_pick(files)
+        print(
+            f"[cli.py] show_quick_pick 返回: {result.get('cancelled')}", file=sys.stderr
+        )
         output_result(result)
         return 0 if not result.get("cancelled") else 1
 
     # 处理 --dir 参数（异步加载，立即显示 UI）
     if args.dir:
+        print(f"[cli.py] 处理 --dir 参数: {args.dir}", file=sys.stderr)
         _check_ui_availability()
         # 切换到指定目录
         dir_path = Path(args.dir).resolve()
@@ -232,7 +260,11 @@ def main() -> int:
         if not _change_directory_safely(dir_path):
             return 1
         # 传入 None 表示异步加载（UI 立即显示，后台加载文件列表）
+        print(f"[cli.py] 调用 show_quick_pick(None)", file=sys.stderr)
         result = show_quick_pick(None)
+        print(
+            f"[cli.py] show_quick_pick 返回: {result.get('cancelled')}", file=sys.stderr
+        )
         output_result(result)
         return 0 if not result.get("cancelled") else 1
 
@@ -326,7 +358,7 @@ def _get_selected_files(files: Optional[List[Tuple[str, str]]], args) -> Dict[st
                     {
                         "error": "PyQt5 not installed",
                         "message": "请运行: pip install PyQt5",
-                        "available": [path for _, path in files],
+                        "available": [path for _, path in files] if files else [],
                     },
                     ensure_ascii=False,
                 ),
@@ -338,7 +370,13 @@ def _get_selected_files(files: Optional[List[Tuple[str, str]]], args) -> Dict[st
                 "cancelled": True,
                 "commitResult": None,
             }
-        return show_quick_pick(files)
+        print(
+            f"[cli.py] 调用 show_quick_pick, files数量: {len(files) if files else 0}",
+            file=sys.stderr,
+        )
+        result = show_quick_pick(files)
+        print(f"[cli.py] show_quick_pick 返回", file=sys.stderr)
+        return result
 
 
 if __name__ == "__main__":

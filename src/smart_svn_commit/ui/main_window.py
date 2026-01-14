@@ -242,8 +242,14 @@ class MainWindow(QMainWindow):
     SORT_FIELDS = ["default", "path", "ext", "status"]
 
     def __init__(self, items: Optional[List[Tuple[str, str]]] = None):
+        print("[MainWindow] __init__ 开始执行", file=sys.stderr)
         super().__init__()
+        print("[MainWindow] super().__init__() 完成", file=sys.stderr)
+
+        print("[MainWindow] 开始调用 ui_logger.info", file=sys.stderr)
         ui_logger.info("[MainWindow] __init__ 开始")
+        print("[MainWindow] ui_logger.info 调用完成", file=sys.stderr)
+
         self._items = items
         self._original_items: List[Tuple[str, str]] = []
         self._items_for_display: List[Tuple[str, str]] = []
@@ -271,20 +277,32 @@ class MainWindow(QMainWindow):
         self.ascending_checkbox: QCheckBox
 
         # 初始化窗口
+        print("[MainWindow] 调用 _init_window", file=sys.stderr)
         ui_logger.info("[MainWindow] 开始初始化窗口")
         self._init_window()
+        print("[MainWindow] _init_window 完成", file=sys.stderr)
+
+        print("[MainWindow] 调用 _init_ui", file=sys.stderr)
         ui_logger.info("[MainWindow] 开始初始化UI")
         self._init_ui()
+        print("[MainWindow] _init_ui 完成", file=sys.stderr)
+
+        print("[MainWindow] 调用 _connect_signals", file=sys.stderr)
         ui_logger.info("[MainWindow] 开始连接信号")
         self._connect_signals()
+        print("[MainWindow] _connect_signals 完成", file=sys.stderr)
 
         # 加载数据
         if items is not None:
+            print(f"[MainWindow] 加载文件列表: {len(items)}", file=sys.stderr)
             ui_logger.info(f"[MainWindow] 加载提供的文件列表，数量: {len(items)}")
             self._load_items(items)
         else:
+            print("[MainWindow] 启动异步加载", file=sys.stderr)
             ui_logger.info("[MainWindow] 启动异步加载")
             self._start_async_load()
+
+        print("[MainWindow] __init__ 完成", file=sys.stderr)
         ui_logger.info("[MainWindow] __init__ 完成")
 
     def _init_window(self) -> None:
