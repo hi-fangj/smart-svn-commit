@@ -3,6 +3,7 @@
 """
 
 import json
+import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -35,6 +36,7 @@ from ..core.fs_helper import FileSystemHelper
 from .constants import CHECKBOX_COLUMN, PATH_COLUMN
 from .context_menu import ContextMenuBuilder
 from .file_list_widget import FileListWidget
+from .logger import ui_logger
 from .settings_dialog import SettingsDialog
 from .styles import UIStyles
 from .svn_loader import SVNStatusLoader
@@ -127,6 +129,17 @@ class TreeEventFilter(QObject):
                     and pos_diff < self.DOUBLE_CLICK_THRESHOLD
                 ):
                     # 检测到双击，跳过处理，让itemDoubleClicked信号触发
+                    item = self.tree.itemAt(event.pos())
+                    if item:
+                        display_text = item.text(PATH_COLUMN)
+                        file_path = (
+                            extract_path_from_display_text(display_text)
+                            if display_text
+                            else ""
+                        )
+                        ui_logger.info(
+                            f"[双击] 路径: {file_path}, 时间间隔: {current_time - self._last_click_time}ms, 位置偏移: {pos_diff:.1f}px"
+                        )
                     return False
 
             self._last_click_time = current_time
@@ -135,6 +148,7 @@ class TreeEventFilter(QObject):
             item = self.tree.itemAt(event.pos())
             if not item:
                 # 点击空白处清空备选项
+                ui_logger.debug("[点击空白] 清空备选项")
                 self.file_list.clear_candidates()
             else:
                 column = self.tree.columnAt(event.pos().x())
@@ -156,13 +170,25 @@ class TreeEventFilter(QObject):
         """处理路径列点击（仅左键）"""
         if event.button() == Qt.LeftButton:
             index = self.tree.indexOfTopLevelItem(item)
+            display_text = item.text(PATH_COLUMN)
+            file_path = (
+                extract_path_from_display_text(display_text) if display_text else ""
+            )
+
             # Shift+点击只设置备选项，不改变复选框状态
             if QGuiApplication.keyboardModifiers() & Qt.ShiftModifier:
+                ui_logger.info(
+                    f"[SHIFT+点击] 路径: {file_path}, 索引: {index}, 仅设置备选项"
+                )
                 self.file_list.handle_item_click(index, None, is_checkbox=False)
             else:
                 # 普通点击切换复选框状态
                 current_state = item.checkState(CHECKBOX_COLUMN)
                 new_state = Qt.Unchecked if current_state == Qt.Checked else Qt.Checked
+                state_str = "Checked" if new_state == Qt.Checked else "Unchecked"
+                ui_logger.info(
+                    f"[点击] 路径: {file_path}, 索引: {index}, 状态: {state_str}"
+                )
                 self.file_list.handle_item_click(index, new_state, is_checkbox=False)
         return False
 
@@ -232,9 +258,16 @@ class MainWindow(QMainWindow):
 
         # 创建菜单栏
         menubar = self.menuBar()
+
+        # 设置菜单
         settings_action = QAction("设置", self)
         settings_action.triggered.connect(lambda: SettingsDialog(self).exec_())
         menubar.addAction(settings_action)
+
+        # 查看日志菜单
+        log_action = QAction("查看日志", self)
+        log_action.triggered.connect(self._show_log_dialog)
+        menubar.addAction(log_action)
 
     def _init_ui(self) -> None:
         """初始化 UI 布局"""
@@ -608,8 +641,12 @@ class MainWindow(QMainWindow):
     def _on_tree_double_click(self, item, column: int) -> None:
         """处理双击事件 - 打开 SVN diff"""
         if item and column == PATH_COLUMN:
-            file_path = extract_path_from_display_text(item.text(PATH_COLUMN))
+            display_text = item.text(PATH_COLUMN)
+            file_path = (
+                extract_path_from_display_text(display_text) if display_text else ""
+            )
             if file_path:
+                ui_logger.info(f"[双击执行] 打开 diff: {file_path}")
                 self._svn_executor.diff(file_path)
 
     def _on_tree_context_menu(self, pos) -> None:
@@ -621,18 +658,94 @@ class MainWindow(QMainWindow):
         # 2. 键盘触发（pos 为无效坐标）→ 使用 currentItem
         if not item:
             if pos.x() == 0 and pos.y() == 0:
+                ui_logger.debug("[右键菜单] 键盘触发，使用 currentItem")
                 item = self.file_list.tree.currentItem()
             else:
+                ui_logger.debug("[右键菜单] 点击空白处，不显示菜单")
                 return
 
         if item:
-            file_path = extract_path_from_display_text(item.text(PATH_COLUMN))
+            display_text = item.text(PATH_COLUMN)
+            file_path = (
+                extract_path_from_display_text(display_text) if display_text else ""
+            )
             if file_path:
-                status = _extract_status_from_display_text(item.text(PATH_COLUMN))
+                status = _extract_status_from_display_text(display_text)
+                ui_logger.info(
+                    f"[右键菜单] 文件: {file_path}, 状态: {status}, 位置: ({pos.x()}, {pos.y()})"
+                )
                 menu = self._menu_builder.build_menu(
                     file_path, status, self.file_list.tree
                 )
                 menu.exec_(self.file_list.tree.viewport().mapToGlobal(pos))
+
+    def _show_log_dialog(self) -> None:
+        """显示日志对话框"""
+        log_file = ui_logger.get_log_file_path()
+
+        if not log_file or not log_file.exists():
+            QMessageBox.information(self, "日志", "日志文件不存在")
+            return
+
+        # 读取日志内容
+        try:
+            with open(log_file, "r", encoding="utf-8") as f:
+                log_content = f.read()
+        except Exception as e:
+            QMessageBox.warning(self, "日志", f"无法读取日志文件: {e}")
+            return
+
+        # 创建对话框
+        dialog = QDialog(self)
+        dialog.setWindowTitle("调试日志")
+        dialog.setMinimumWidth(800)
+        dialog.setMinimumHeight(600)
+
+        layout = QVBoxLayout(dialog)
+
+        # 日志文件路径
+        path_label = QLabel(f"日志文件路径: {log_file}")
+        path_label.setStyleSheet("color: #666; font-size: 12px;")
+        path_label.setWordWrap(True)
+        layout.addWidget(path_label)
+
+        # 日志内容
+        log_text = QTextEdit()
+        log_text.setPlainText(log_content)
+        log_text.setReadOnly(True)
+        log_text.setStyleSheet("font-family: Consolas, monospace; font-size: 12px;")
+        layout.addWidget(log_text)
+
+        # 按钮
+        button_layout = QHBoxLayout()
+        copy_btn = QPushButton("复制到剪贴板")
+        open_btn = QPushButton("打开所在目录")
+        close_btn = QPushButton("关闭")
+
+        copy_btn.clicked.connect(lambda: QApplication.clipboard().setText(log_content))
+
+        if sys.platform == "win32":
+            import subprocess
+
+            open_btn.clicked.connect(
+                lambda: subprocess.run(
+                    ["explorer", "/select,", str(log_file)], shell=True
+                )
+            )
+        else:
+            open_btn.clicked.connect(
+                lambda: subprocess.run(["xdg-open", str(log_file.parent)], check=False)
+            )
+
+        close_btn.clicked.connect(dialog.accept)
+
+        button_layout.addWidget(copy_btn)
+        button_layout.addWidget(open_btn)
+        button_layout.addStretch()
+        button_layout.addWidget(close_btn)
+        layout.addLayout(button_layout)
+
+        dialog.exec_()
 
     def _show_help_dialog(self) -> None:
         """显示帮助对话框"""
