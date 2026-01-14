@@ -243,6 +243,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self, items: Optional[List[Tuple[str, str]]] = None):
         super().__init__()
+        ui_logger.info("[MainWindow] __init__ 开始")
         self._items = items
         self._original_items: List[Tuple[str, str]] = []
         self._items_for_display: List[Tuple[str, str]] = []
@@ -270,15 +271,21 @@ class MainWindow(QMainWindow):
         self.ascending_checkbox: QCheckBox
 
         # 初始化窗口
+        ui_logger.info("[MainWindow] 开始初始化窗口")
         self._init_window()
+        ui_logger.info("[MainWindow] 开始初始化UI")
         self._init_ui()
+        ui_logger.info("[MainWindow] 开始连接信号")
         self._connect_signals()
 
         # 加载数据
         if items is not None:
+            ui_logger.info(f"[MainWindow] 加载提供的文件列表，数量: {len(items)}")
             self._load_items(items)
         else:
+            ui_logger.info("[MainWindow] 启动异步加载")
             self._start_async_load()
+        ui_logger.info("[MainWindow] __init__ 完成")
 
     def _init_window(self) -> None:
         """初始化窗口基本属性"""
@@ -884,6 +891,8 @@ def show_quick_pick(items: Optional[List[Tuple[str, str]]] = None) -> Dict[str, 
     Returns:
         包含 selected、commitMessage、cancelled、commitResult 的字典
     """
+    print("[show_quick_pick] 函数开始执行", file=sys.stderr)
+
     if not check_pyqt5_available(items):
         sys.exit(1)
 
@@ -892,13 +901,23 @@ def show_quick_pick(items: Optional[List[Tuple[str, str]]] = None) -> Dict[str, 
     app.setApplicationName("SVN 提交助手")
 
     # 创建并显示主窗口
+    ui_logger.info(
+        f"[show_quick_pick] 开始创建MainWindow, items: {len(items) if items else 0}"
+    )
+    print(f"[show_quick_pick] 开始创建MainWindow", file=sys.stderr)
     window = MainWindow(items)
     window.show()
 
     # 如果没有提供 items，延迟启动异步加载
     if items is None:
+        ui_logger.info("[show_quick_pick] 设置延迟启动异步加载")
         QTimer.singleShot(0, window._start_async_load)
 
+    ui_logger.info("[show_quick_pick] 开始事件循环")
+    print("[show_quick_pick] 开始事件循环", file=sys.stderr)
     app.exec_()
+
+    ui_logger.info("[show_quick_pick] 事件循环结束")
+    print("[show_quick_pick] 事件循环结束", file=sys.stderr)
 
     return window.get_result()
