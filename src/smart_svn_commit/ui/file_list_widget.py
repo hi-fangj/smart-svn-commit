@@ -2,7 +2,7 @@
 文件列表控件模块
 """
 
-from typing import List, Set, Tuple
+from typing import List, Optional, Set, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QBrush, QColor, QGuiApplication
@@ -307,17 +307,17 @@ class FileListWidget:
         self.shift_start_index = -1
 
     def handle_item_click(
-        self, index: int, new_state: Qt.CheckState, is_checkbox: bool = True
+        self, index: int, new_state: Optional[Qt.CheckState], is_checkbox: bool = True
     ) -> None:
         """
         处理复选框状态改变，支持 Shift 批量选择
 
         Args:
             index: 项索引
-            new_state: 新的复选框状态
+            new_state: 新的复选框状态（None 表示不改变复选框状态，仅处理备选项）
             is_checkbox: 是否来自复选框点击
         """
-        if is_checkbox:
+        if is_checkbox and new_state is not None:
             self._handle_checkbox_click(index, new_state)
         else:
             self._handle_path_click(index)
@@ -330,6 +330,9 @@ class FileListWidget:
             index: 项索引
             new_state: 新的复选框状态
         """
+        if new_state is None:
+            return
+
         self.tree.blockSignals(True)
 
         if self.candidate_indices:

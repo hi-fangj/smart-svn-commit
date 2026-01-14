@@ -7,6 +7,7 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 from PyQt5.QtCore import QEvent, QObject, Qt, QTimer, pyqtSlot
+from PyQt5.QtGui import QGuiApplication
 from PyQt5.QtWidgets import (
     QAction,
     QApplication,
@@ -85,6 +86,10 @@ def check_pyqt5_available(items: Optional[List[Tuple[str, str]]]) -> bool:
 class TreeEventFilter(QObject):
     """树控件事件过滤器 - 处理路径点击和空白处清空备选项"""
 
+    # 双击检测常量
+    DOUBLE_CLICK_INTERVAL = 500  # ms
+    DOUBLE_CLICK_THRESHOLD = 15  # px
+
     def __init__(
         self,
         tree_widget: QTreeWidget,
@@ -103,9 +108,30 @@ class TreeEventFilter(QObject):
         )
         self._refresh_callback = refresh_callback
 
+        # 双击检测
+        self._last_click_time = 0
+        self._last_click_pos = None
+
     def eventFilter(self, _obj, event):
         """处理鼠标点击和按键事件"""
         if event.type() == QEvent.MouseButtonPress:
+            # 检测是否为双击（两次点击间隔小于500ms且位置相近）
+            current_time = event.timestamp()
+            if self._last_click_pos:
+                pos_diff = (
+                    abs(event.pos().x() - self._last_click_pos.x()) ** 2
+                    + abs(event.pos().y() - self._last_click_pos.y()) ** 2
+                ) ** 0.5
+                if (
+                    current_time - self._last_click_time < self.DOUBLE_CLICK_INTERVAL
+                    and pos_diff < self.DOUBLE_CLICK_THRESHOLD
+                ):
+                    # 检测到双击，跳过处理，让itemDoubleClicked信号触发
+                    return False
+
+            self._last_click_time = current_time
+            self._last_click_pos = event.pos()
+
             item = self.tree.itemAt(event.pos())
             if not item:
                 # 点击空白处清空备选项
@@ -129,11 +155,15 @@ class TreeEventFilter(QObject):
     def _handle_path_column_click(self, item, event):
         """处理路径列点击（仅左键）"""
         if event.button() == Qt.LeftButton:
-            # 左键切换复选框（支持 Shift+范围选择）
             index = self.tree.indexOfTopLevelItem(item)
-            current_state = item.checkState(CHECKBOX_COLUMN)
-            new_state = Qt.Unchecked if current_state == Qt.Checked else Qt.Checked
-            self.file_list.handle_item_click(index, new_state, is_checkbox=False)
+            # Shift+点击只设置备选项，不改变复选框状态
+            if QGuiApplication.keyboardModifiers() & Qt.ShiftModifier:
+                self.file_list.handle_item_click(index, None, is_checkbox=False)
+            else:
+                # 普通点击切换复选框状态
+                current_state = item.checkState(CHECKBOX_COLUMN)
+                new_state = Qt.Unchecked if current_state == Qt.Checked else Qt.Checked
+                self.file_list.handle_item_click(index, new_state, is_checkbox=False)
         return False
 
 
@@ -585,6 +615,16 @@ class MainWindow(QMainWindow):
     def _on_tree_context_menu(self, pos) -> None:
         """显示右键菜单"""
         item = self.file_list.tree.itemAt(pos)
+
+        # 如果 itemAt 返回 None，可能是：
+        # 1. 点击空白处 → 不显示菜单
+        # 2. 键盘触发（pos 为无效坐标）→ 使用 currentItem
+        if not item:
+            if pos.x() == 0 and pos.y() == 0:
+                item = self.file_list.tree.currentItem()
+            else:
+                return
+
         if item:
             file_path = extract_path_from_display_text(item.text(PATH_COLUMN))
             if file_path:
