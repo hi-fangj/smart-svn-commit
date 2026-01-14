@@ -491,25 +491,15 @@ class MainWindow(QMainWindow):
         self.file_list.tree.setContextMenuPolicy(Qt.CustomContextMenu)
         ui_logger.info("[树控件] 已配置双击和右键菜单策略")
 
-        # 连接双击和右键菜单信号
+        # 连接双击、点击和右键菜单信号
+        self.file_list.tree.itemClicked.connect(self._on_tree_item_clicked)
         self.file_list.tree.itemDoubleClicked.connect(self._on_tree_double_click)
         self.file_list.tree.customContextMenuRequested.connect(
             self._on_tree_context_menu
         )
         ui_logger.info(
-            "[信号] 已连接 itemDoubleClicked 和 customContextMenuRequested 信号"
+            "[信号] 已连接 itemClicked、itemDoubleClicked 和 customContextMenuRequested 信号"
         )
-
-        # 安装事件过滤器
-        event_filter = TreeEventFilter(
-            self.file_list.tree,
-            self.file_list,
-            self._svn_executor,
-            self._fs_helper,
-            self._refresh_file_list,
-        )
-        self.file_list.tree.installEventFilter(event_filter)
-        ui_logger.info("[事件过滤器] 已安装到 tree")
 
         # 快捷键
         self.confirm_btn.setShortcut(self.CONFIRM_BUTTON_SHORTCUT)
@@ -692,6 +682,39 @@ class MainWindow(QMainWindow):
                         self.file_list.tree.topLevelItemCount() - 1
                     )
                     last_item.setCheckState(CHECKBOX_COLUMN, Qt.Checked)
+
+    def _on_tree_item_clicked(self, item, column: int) -> None:
+        """处理点击事件 - 路径列点击时检测Shift键"""
+        if column == PATH_COLUMN and item:
+            index = self.file_list.tree.indexOfTopLevelItem(item)
+            display_text = item.text(PATH_COLUMN)
+            file_path = (
+                extract_path_from_display_text(display_text) if display_text else ""
+            )
+
+            ui_logger.info(f"[路径点击] 索引: {index}, 路径: {file_path}, 列: {column}")
+
+            # 检测Shift键
+            modifiers = QGuiApplication.keyboardModifiers()
+            is_shift = modifiers & Qt.ShiftModifier
+            ui_logger.info(
+                f"[路径点击] 键盘修饰符: {modifiers}, Shift={bool(is_shift)}"
+            )
+
+            if is_shift:
+                ui_logger.info(
+                    f"[SHIFT+点击] 路径: {file_path}, 索引: {index}, 仅设置备选项"
+                )
+                self.file_list.handle_item_click(index, None, is_checkbox=False)
+            else:
+                # 普通点击切换复选框状态
+                current_state = item.checkState(CHECKBOX_COLUMN)
+                new_state = Qt.Unchecked if current_state == Qt.Checked else Qt.Checked
+                state_str = "Checked" if new_state == Qt.Checked else "Unchecked"
+                ui_logger.info(
+                    f"[点击] 路径: {file_path}, 索引: {index}, 状态: {state_str}"
+                )
+                self.file_list.handle_item_click(index, new_state, is_checkbox=False)
 
     def _on_tree_item_changed(self, item, column: int) -> None:
         """树控件项改变事件"""
