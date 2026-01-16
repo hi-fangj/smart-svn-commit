@@ -6,7 +6,7 @@
 !define DESCRIPTION "AI 驱动的 SVN 提交助手"
 !define VERSIONMAJOR 3
 !define VERSIONMINOR 0
-!define VERSIONBUILD 21
+!define VERSIONBUILD 22
 !define HELPURL "https://github.com/hi-fangj/smart-svn-commit" ; 请修改为实际的仓库 URL
 !define UPDATEURL "https://github.com/hi-fangj/smart-svn-commit"
 !define ABOUTURL "https://github.com/hi-fangj/smart-svn-commit"
