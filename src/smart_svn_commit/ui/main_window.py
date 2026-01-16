@@ -33,6 +33,7 @@ from ..core.commit import execute_svn_commit
 from ..core.parser import extract_path_from_display_text
 from ..core.svn_executor import SVNCommandExecutor
 from ..core.fs_helper import FileSystemHelper
+from ..__init__ import __version__
 from .constants import CHECKBOX_COLUMN, PATH_COLUMN
 from .context_menu import ContextMenuBuilder
 from .file_list_widget import FileListWidget
@@ -169,6 +170,11 @@ class MainWindow(QMainWindow):
         log_action = QAction("查看日志", self)
         log_action.triggered.connect(self._show_log_dialog)
         menubar.addAction(log_action)
+
+        # 关于菜单
+        about_action = QAction("关于", self)
+        about_action.triggered.connect(self._show_about_dialog)
+        menubar.addAction(about_action)
 
     def _init_ui(self) -> None:
         """初始化 UI 布局"""
@@ -710,6 +716,56 @@ class MainWindow(QMainWindow):
         help_label.setWordWrap(True)
         help_label.setOpenExternalLinks(False)
         layout.addWidget(help_label)
+
+        close_btn = QPushButton("关闭")
+        close_btn.clicked.connect(dialog.accept)
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        button_layout.addWidget(close_btn)
+        layout.addLayout(button_layout)
+
+        dialog.exec_()
+
+    def _show_about_dialog(self) -> None:
+        """显示关于对话框"""
+        about_text = f"""<h2>SVN 提交助手</h2>
+
+<p><b>版本:</b> {__version__}</p>
+
+<p>AI 驱动的 SVN 提交助手，提供友好的 PyQt5 GUI 界面</p>
+
+<h4>主要特性:</h4>
+<ul>
+    <li>基于 PyQt5 的现代化 GUI 界面</li>
+    <li>支持 AI 自动生成符合 Conventional Commits 规范的提交消息</li>
+    <li>Windows 下完美集成 TortoiseSVN 操作</li>
+    <li>支持通配符搜索和自定义忽略模式</li>
+    <li>快捷键支持（Enter 确认、ESC 取消、F5 刷新）</li>
+    <li>支持 Windows 右键菜单集成</li>
+</ul>
+
+<h4>项目信息:</h4>
+<ul>
+    <li><b>项目名称:</b> smart-svn-commit</li>
+    <li><b>开源协议:</b> MIT License</li>
+    <li><b>Python 版本:</b> 3.8+</li>
+    <li><b>GitHub:</b> <a href="https://github.com/hi-fangj/smart-svn-commit">https://github.com/hi-fangj/smart-svn-commit</a></li>
+</ul>
+
+<p>如有问题或建议，欢迎提交 Issue！</p>
+"""
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("关于")
+        dialog.setMinimumWidth(500)
+
+        layout = QVBoxLayout(dialog)
+
+        about_label = QLabel(about_text)
+        about_label.setTextFormat(Qt.RichText)
+        about_label.setWordWrap(True)
+        about_label.setOpenExternalLinks(False)
+        layout.addWidget(about_label)
 
         close_btn = QPushButton("关闭")
         close_btn.clicked.connect(dialog.accept)
